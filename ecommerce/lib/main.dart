@@ -1,3 +1,4 @@
+import 'package:ecommerce/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/intro_screen.dart';
@@ -26,6 +27,7 @@ class MyApp extends StatelessWidget {
         '/intro': (context) => const IntroScreen(),
         '/signup': (context) => const SignUpScreen(),
         '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
       },
     );
   }
