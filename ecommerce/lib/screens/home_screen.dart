@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'discover_page.dart'; // for navigation from "All"
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,12 +20,13 @@ class _HomeScreenState extends State<HomeScreen> {
   static const String t1 = 'assets/product_thumb1.png';
   static const String t2 = 'assets/product_thumb2.png';
 
+  // "Beauty" changed to "All"
   final List<Map<String, dynamic>> _categories = [
     {'icon': Icons.female, 'label': 'Women'},
     {'icon': Icons.male, 'label': 'Men'},
     {'icon': Icons.watch, 'label': 'Watches'},
     {'icon': Icons.tag, 'label': 'Accessories'},
-    {'icon': Icons.brush, 'label': 'Beauty'},
+    {'icon': Icons.grid_view, 'label': 'All'}, // changed
   ];
 
   final List<Map<String, String>> _feature = [
@@ -49,11 +51,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Category tile: now navigates to DiscoverPage when label == 'All'
   Widget _categoryTile(int index) {
     final item = _categories[index];
     final selected = _selectedCategory == index;
     return GestureDetector(
-      onTap: () => setState(() => _selectedCategory = index),
+      onTap: () {
+        setState(() => _selectedCategory = index);
+
+        // Navigate to DiscoverPage when "All" is tapped
+        if (item['label'] == 'All') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const DiscoverPage()),
+          );
+        }
+      },
       child: Container(
         width: 72,
         margin: const EdgeInsets.only(right: 12),
@@ -198,6 +211,98 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ---- Modified Drawer UI ----
+  Widget _buildDrawer() {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          children: [
+            // nicer header with avatar, name, email and background accent
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: const BorderRadius.only(bottomRight: Radius.circular(18)),
+              ),
+              child: Row(
+                children: [
+                  const CircleAvatar(radius: 30, backgroundColor: Colors.grey),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                      Text('Hello, Guest', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      SizedBox(height: 4),
+                      Text('guest@example.com', style: TextStyle(color: Colors.grey)),
+                    ]),
+                  ),
+                  IconButton(onPressed: () {}, icon: const Icon(Icons.edit, size: 20, color: Colors.black54)),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            // menu items
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {
+                    // navigate or handle
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile tapped')));
+                  }),
+                  ListTile(leading: const Icon(Icons.favorite_border), title: const Text('Wishlist'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wishlist tapped')));
+                  }),
+                  ListTile(leading: const Icon(Icons.shopping_bag_outlined), title: const Text('Orders'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Orders tapped')));
+                  }),
+                  const Divider(),
+                  ListTile(leading: const Icon(Icons.settings_outlined), title: const Text('Settings'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings tapped')));
+                  }),
+                  ListTile(leading: const Icon(Icons.help_outline), title: const Text('Help & Support'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Help tapped')));
+                  }),
+                ],
+              ),
+            ),
+
+            // bottom actions
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.login_outlined),
+                      label: const Text('Sign In'),
+                      onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign In tapped'))); },
+                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Log out tapped'))); },
+                    icon: const Icon(Icons.logout),
+                    tooltip: 'Log out',
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const double horizontalPad = 18.0;
@@ -207,30 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      drawer: Drawer(
-        child: SafeArea(
-          child: Column(
-            children: [
-              DrawerHeader(
-                child: Row(
-                  children: const [
-                    CircleAvatar(radius: 28, backgroundColor: Colors.grey),
-                    SizedBox(width: 12),
-                    Text('Hello, Guest', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-              ),
-              ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {}),
-              ListTile(leading: const Icon(Icons.favorite_border), title: const Text('Wishlist'), onTap: () {}),
-              ListTile(leading: const Icon(Icons.shopping_bag_outlined), title: const Text('Orders'), onTap: () {}),
-              const Divider(),
-              ListTile(leading: const Icon(Icons.settings_outlined), title: const Text('Settings'), onTap: () {}),
-              const Spacer(),
-              ListTile(leading: const Icon(Icons.logout), title: const Text('Log out'), onTap: () {}),
-            ],
-          ),
-        ),
-      ),
+      drawer: _buildDrawer(), // use improved drawer
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
