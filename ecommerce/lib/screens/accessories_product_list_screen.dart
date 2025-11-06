@@ -60,6 +60,8 @@ class AccessoriesProductListScreen extends StatelessWidget {
     },
   ];
 
+   AccessoriesProductListScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

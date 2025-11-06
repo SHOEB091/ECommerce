@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'discover_page.dart'; // for navigation from "All"
+import 'chat_screen.dart'; // <-- Chat screen import (make sure this file exists at lib/screens/chat_screen.dart)
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -582,6 +583,18 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       // Build scaffold differently for desktop vs mobile
+      // Create a shared chat FAB so both scaffolds can use the same button
+      final chatButton = FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChatScreen()),
+          );
+        },
+        backgroundColor: Colors.blue.shade700,
+        child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+      );
+
       if (isDesktop) {
         // Permanent side panel + content area
         return Scaffold(
@@ -606,6 +619,8 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(child: content),
             ],
           ),
+          // Add chat FAB on desktop
+          floatingActionButton: chatButton,
           // on desktop we hide bottom nav; if you'd like a navigation rail we can add it
         );
       } else {
@@ -639,6 +654,8 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 3 ? Icons.person : Icons.person_outline), label: 'Account'),
             ],
           ),
+          // Add chat FAB on mobile
+          floatingActionButton: chatButton,
         );
       }
     });
