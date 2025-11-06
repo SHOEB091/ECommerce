@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
     {'img': p2, 'title': 'Long Sleeve Dress', 'price': '\$45.00'},
     {'img': p3, 'title': 'Sportwear', 'price': '\$80.00'},
     {'img': p4, 'title': 'Casual Jacket', 'price': '\$64.00'},
-    // you can add more items here to test grid responsiveness
+    // add more items to test responsiveness
   ];
 
   final List<Map<String, String>> _recommended = [
@@ -50,6 +50,14 @@ class _HomeScreenState extends State<HomeScreen> {
       child: const Center(
         child: Icon(Icons.image_not_supported, size: 34, color: Colors.grey),
       ),
+    );
+  }
+
+  // Navigate helper: opens ProductDetails page
+  void _openProduct(Map<String, String> product) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProductDetails(product: product)),
     );
   }
 
@@ -95,11 +103,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Feature card (used for grid and horizontal lists)
   Widget _featureCard(Map<String, String> item, {double? width, double imageHeight = 140}) {
+    final heroTag = 'hero-${item['title']}';
     return InkWell(
       onTap: () {
-        // No product detail page — you can trigger selection or add-to-cart here later
-        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item['title']} tapped')));
+        // open product details page
+        _openProduct(item);
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -108,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // rounded image
+            // rounded image (wrapped with Hero)
             Container(
               height: imageHeight,
               decoration: BoxDecoration(
@@ -116,10 +124,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               clipBehavior: Clip.hardEdge,
-              child: Image.asset(
-                item['img']!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
+              child: Hero(
+                tag: heroTag,
+                child: Image.asset(
+                  item['img']!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -146,19 +157,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onBottomTap(int idx) {
+    // change selected index to update icon colors
     setState(() => _bottomIndex = idx);
+
     if (idx != 0) {
       ScaffoldMessenger.of(context).removeCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(idx == 1 ? 'Search' : idx == 2 ? 'Bag' : 'Account')));
     }
   }
 
-  // Recommended thumb (no navigation)
+  // Recommended thumb (navigates to ProductDetails)
   Widget _productThumb(Map<String, String> item) {
+    final heroTag = 'hero-${item['title']}';
     return InkWell(
       onTap: () {
-        ScaffoldMessenger.of(context).removeCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${item['title']} tapped')));
+        _openProduct(item);
       },
       borderRadius: BorderRadius.circular(8),
       child: Container(
@@ -171,7 +184,10 @@ class _HomeScreenState extends State<HomeScreen> {
               height: 56,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
               clipBehavior: Clip.hardEdge,
-              child: Image.asset(item['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+              child: Hero(
+                tag: heroTag,
+                child: Image.asset(item['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -218,7 +234,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SafeArea(
       child: Column(
         children: [
-          // nicer header with avatar, name, email and background accent
+          // header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
@@ -250,7 +266,6 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
                 ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {
-                  // navigate or handle
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile tapped')));
                 }),
@@ -457,28 +472,31 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSpacing: 12,
                       childAspectRatio: 3.4,
                       children: _recommended.map((p) {
-                        return Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[100]),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
-                                clipBehavior: Clip.hardEdge,
-                                child: Image.asset(p['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                                  Text(p['title']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 6),
-                                  Text(p['price']!, style: const TextStyle(color: Colors.grey)),
-                                ]),
-                              ),
-                              IconButton(onPressed: () {}, icon: const Icon(Icons.add_shopping_cart_outlined)),
-                            ],
+                        return InkWell(
+                          onTap: () => _openProduct(p),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[100]),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 72,
+                                  height: 72,
+                                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
+                                  clipBehavior: Clip.hardEdge,
+                                  child: Image.asset(p['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
+                                    Text(p['title']!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                    const SizedBox(height: 6),
+                                    Text(p['price']!, style: const TextStyle(color: Colors.grey)),
+                                  ]),
+                                ),
+                                IconButton(onPressed: () {}, icon: const Icon(Icons.add_shopping_cart_outlined)),
+                              ],
+                            ),
                           ),
                         );
                       }).toList(),
@@ -588,7 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(child: content),
             ],
           ),
-          // on desktop hide bottom nav; if you want a permanent nav on the right/left you can add NavigationRail
+          // on desktop we hide bottom nav; if you'd like a navigation rail we can add it
         );
       } else {
         // mobile scaffold with drawer & bottom navigation
@@ -612,6 +630,8 @@ class _HomeScreenState extends State<HomeScreen> {
             showSelectedLabels: false,
             showUnselectedLabels: false,
             elevation: 8,
+            selectedItemColor: Colors.blue, // selected color
+            unselectedItemColor: Colors.grey, // unselected color
             items: [
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 0 ? Icons.home : Icons.home_outlined), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 1 ? Icons.search : Icons.search_outlined), label: 'Search'),
@@ -622,5 +642,94 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     });
+  }
+}
+
+/// Simple product details screen - accepts the product map
+class ProductDetails extends StatelessWidget {
+  final Map<String, String> product;
+  const ProductDetails({super.key, required this.product});
+
+  Widget _imageFallback({double? height}) {
+    return Container(
+      height: height,
+      color: Colors.grey[100],
+      child: const Center(child: Icon(Icons.image_not_supported, size: 44, color: Colors.grey)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = product['title'] ?? 'Product';
+    final price = product['price'] ?? '';
+    final img = product['img'];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, style: const TextStyle(color: Colors.black87)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // image (now uses same Hero tag as on home)
+            Container(
+              height: 320,
+              width: double.infinity,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]),
+              clipBehavior: Clip.hardEdge,
+              child: img != null
+                  ? Hero(
+                      tag: 'hero-${product['title']}',
+                      child: Image.asset(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(height: 320)),
+                    )
+                  : _imageFallback(height: 320),
+            ),
+            const SizedBox(height: 18),
+            Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(price, style: const TextStyle(fontSize: 18, color: Colors.grey)),
+            const SizedBox(height: 14),
+            const Text('Description', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            const Text(
+              'This is a sample product description. Replace this with real product details: sizes, materials, care instructions, and any other relevant information you want to show to customers.',
+              style: TextStyle(color: Colors.black87),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to cart')));
+                    },
+                    icon: const Icon(Icons.add_shopping_cart),
+                    label: const Text('Add to cart'),
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black87),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    child: Text('Close'),
+                  ),
+                )
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
