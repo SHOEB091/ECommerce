@@ -1,3 +1,9 @@
+import 'package:ecommerce/screens/home_screen.dart';
+import 'package:ecommerce/screens/welcome_screen.dart';
+import 'package:ecommerce/screens/intro_screen.dart';
+import 'package:ecommerce/screens/signup_screen.dart';
+import 'package:ecommerce/screens/login_screen.dart';
+import 'package:ecommerce/screens/discover_page.dart';
 import 'package:flutter/material.dart';
 import 'screens/mens_product_list_screen.dart';
 import 'screens/womens_product_list_screen.dart';
@@ -15,43 +21,30 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "E-Commerce UI",
-      home: const HomeScreen(),
-    );
-  }
-}
-
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("🛍️ FluxStore UI")),
-      body: ListView(
-        children: [
-          ListTile(
-            title: const Text("👕 Men's Collection"),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const MensProductListScreen())),
-          ),
-          ListTile(
-            title: const Text("👗 Women's Collection"),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const WomenProductListScreen())),
-          ),
-          ListTile(
-            title: const Text("🕶️ Accessories"),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) =>  AccessoriesProductListScreen())),
-          ),
-          ListTile(
-            title: const Text("🧴 More Items"),
-            onTap: () => Navigator.push(context,
-                MaterialPageRoute(builder: (_) => const MoreProductListScreen())),
-          ),
-        ],
+      title: 'GemStore',
+      // ✅ Combined Theme
+      theme: ThemeData(
+        useMaterial3: true, // from dashboard version
+        fontFamily: 'Poppins',
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A0A0A)),
+        scaffoldBackgroundColor: Colors.white,
       ),
+
+      // ✅ Combined Routing System
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const WelcomeScreen(),
+        '/intro': (context) => const IntroScreen(),
+        '/signup': (context) => const SignUpScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+        '/discover': (context) => const DiscoverPage(),
+        // Product list routes
+        '/mens': (context) => const MensProductListScreen(),
+        '/womens': (context) => const WomenProductListScreen(),
+        '/accessories': (context) => const AccessoriesProductListScreen(),
+        '/more': (context) => const MoreProductListScreen(),
+      },
     );
   }
 }
