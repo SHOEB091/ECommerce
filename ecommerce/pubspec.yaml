@@ -34,6 +34,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
+  uuid: ^4.5.2
 
 dev_dependencies:
   flutter_test:
@@ -57,30 +58,30 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
-  assets:
-    - assets/sample_image1.jpg
-    - assets/sample_img_2.jpg
-    - assets/sample_img3.jpg
-    - assets/sample_img4.jpg
-    - assets/sample5.jpg
-    - assets/sample6.jpg
-    - assets/sample7.jpg
-    - assets/sample8.jpg
-    - assets/sample10.jpg
-    - assets/watch.jpg
-    - assets/shirt.jpg
-    - assets/cap.jpg
-    - assets/bag.jpg
-    - assets/chasma.jpg
-    - assets/purse.jpg
-    - assets/sample9.jpg
-    - assets/tshirt.jpg
-    - assets/perfume.jpg
-    - assets/keychain.jpg
-    - assets/belt.jpg
-    - assets/makeup.jpg
-    - assets/giftbox.jpg
-    - assets/towel.jpg
+  # assets:
+  #   - assets/sample_image1.jpg
+  #   - assets/sample_img_2.jpg
+  #   - assets/sample_img3.jpg
+  #   - assets/sample_img4.jpg
+  #   - assets/sample5.jpg
+  #   - assets/sample6.jpg
+  #   - assets/sample7.jpg
+  #   - assets/sample8.jpg
+  #   - assets/sample10.jpg
+  #   - assets/watch.jpg
+  #   - assets/shirt.jpg
+  #   - assets/cap.jpg
+  #   - assets/bag.jpg
+  #   - assets/chasma.jpg
+  #   - assets/purse.jpg
+  #   - assets/sample9.jpg
+  #   - assets/tshirt.jpg
+  #   - assets/perfume.jpg
+  #   - assets/keychain.jpg
+  #   - assets/belt.jpg
+  #   - assets/makeup.jpg
+  #   - assets/giftbox.jpg
+  #   - assets/towel.jpg
     
     
 

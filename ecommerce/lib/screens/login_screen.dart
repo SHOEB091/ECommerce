@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'admin/admin_panel.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +15,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
 
+
+  final String adminEmail = "admin123@gmail.com";
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -21,10 +25,8 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // Replace this with real authentication logic (Firebase, API, etc.)
   Future<bool> _fakeAuthenticate(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
-    // demo: any non-empty credentials succeed
     return email.isNotEmpty && password.isNotEmpty;
   }
 
@@ -37,7 +39,18 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = false);
 
     if (success) {
-      // Navigate to Home screen and remove Login from the stack
+      final email = _emailCtrl.text.trim();
+
+      // ✅ Admin redirect logic
+      if (email.toLowerCase() == adminEmail.toLowerCase()) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminPanel()),
+        );
+        return;
+      }
+
+      // Normal user → Home
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,20 +127,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    // Forgot password (optional)
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () {
-                          // TODO: implement forgot password flow
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Forgot password tapped')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Forgot password tapped')),
+                          );
                         },
                         child: const Text('Forgot Password?'),
                       ),
                     ),
                     const SizedBox(height: 8),
 
-                    // Login button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -148,29 +160,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Social sign-in row
                     const Text('or log in with', style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _socialIcon(Icons.apple, () {
-                          // TODO: Apple sign in
-                        }),
+                        _socialIcon(Icons.apple, () {}),
                         const SizedBox(width: 14),
-                        _socialIcon(Icons.g_mobiledata, () {
-                          // TODO: Google sign in
-                        }),
+                        _socialIcon(Icons.g_mobiledata, () {}),
                         const SizedBox(width: 14),
-                        _socialIcon(Icons.facebook, () {
-                          // TODO: Facebook sign in
-                        }),
+                        _socialIcon(Icons.facebook, () {}),
                       ],
                     ),
-
                     const SizedBox(height: 16),
-
-                    // Link to Sign Up
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -178,7 +180,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 8),
                         InkWell(
                           onTap: () => Navigator.pushReplacementNamed(context, '/signup'),
-                          child: Text('Sign Up', style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600)),
+                          child: Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
                     ),
