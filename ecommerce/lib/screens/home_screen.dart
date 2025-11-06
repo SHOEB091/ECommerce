@@ -35,11 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     {'img': p2, 'title': 'Long Sleeve Dress', 'price': '\$45.00'},
     {'img': p3, 'title': 'Sportwear', 'price': '\$80.00'},
     {'img': p4, 'title': 'Casual Jacket', 'price': '\$64.00'},
-<<<<<<< HEAD
     // add more items to test responsiveness
-=======
-    // you can add more items here to test grid responsiveness
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
   ];
 
   final List<Map<String, String>> _recommended = [
@@ -108,10 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Feature card (used for grid and horizontal lists)
   Widget _featureCard(Map<String, String> item, {double? width, double imageHeight = 140}) {
-<<<<<<< HEAD
     final heroTag = 'hero-${item['title']}';
-=======
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
     return InkWell(
       onTap: () {
         // open product details page
@@ -132,7 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               clipBehavior: Clip.hardEdge,
-<<<<<<< HEAD
               child: Hero(
                 tag: heroTag,
                 child: Image.asset(
@@ -140,12 +132,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
                 ),
-=======
-              child: Image.asset(
-                item['img']!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
               ),
             ),
             const SizedBox(height: 10),
@@ -249,11 +235,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return SafeArea(
       child: Column(
         children: [
-<<<<<<< HEAD
           // header
-=======
-          // nicer header with avatar, name, email and background accent
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
@@ -285,10 +267,6 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
                 ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {
-<<<<<<< HEAD
-=======
-                  // navigate or handle
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile tapped')));
                 }),
@@ -495,7 +473,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSpacing: 12,
                       childAspectRatio: 3.4,
                       children: _recommended.map((p) {
-<<<<<<< HEAD
                         return InkWell(
                           onTap: () => _openProduct(p),
                           child: Container(
@@ -521,30 +498,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 IconButton(onPressed: () {}, icon: const Icon(Icons.add_shopping_cart_outlined)),
                               ],
                             ),
-=======
-                        return Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[100]),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 72,
-                                height: 72,
-                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
-                                clipBehavior: Clip.hardEdge,
-                                child: Image.asset(p['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-                                  Text(p['title']!, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 6),
-                                  Text(p['price']!, style: const TextStyle(color: Colors.grey)),
-                                ]),
-                              ),
-                              IconButton(onPressed: () {}, icon: const Icon(Icons.add_shopping_cart_outlined)),
-                            ],
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
                           ),
                         );
                       }).toList(),
@@ -630,7 +583,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       // Build scaffold differently for desktop vs mobile
-<<<<<<< HEAD
       // Create a shared chat FAB so both scaffolds can use the same button
       final chatButton = FloatingActionButton(
         onPressed: () {
@@ -643,8 +595,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
       );
 
-=======
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
       if (isDesktop) {
         // Permanent side panel + content area
         return Scaffold(
@@ -669,13 +619,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Expanded(child: content),
             ],
           ),
-<<<<<<< HEAD
           // Add chat FAB on desktop
           floatingActionButton: chatButton,
           // on desktop we hide bottom nav; if you'd like a navigation rail we can add it
-=======
-          // on desktop hide bottom nav; if you want a permanent nav on the right/left you can add NavigationRail
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
         );
       } else {
         // mobile scaffold with drawer & bottom navigation
@@ -699,11 +645,8 @@ class _HomeScreenState extends State<HomeScreen> {
             showSelectedLabels: false,
             showUnselectedLabels: false,
             elevation: 8,
-<<<<<<< HEAD
             selectedItemColor: Colors.blue, // selected color
             unselectedItemColor: Colors.grey, // unselected color
-=======
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
             items: [
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 0 ? Icons.home : Icons.home_outlined), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 1 ? Icons.search : Icons.search_outlined), label: 'Search'),
@@ -711,7 +654,6 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 3 ? Icons.person : Icons.person_outline), label: 'Account'),
             ],
           ),
-<<<<<<< HEAD
           // Add chat FAB on mobile
           floatingActionButton: chatButton,
         );
@@ -806,10 +748,5 @@ class ProductDetails extends StatelessWidget {
         ),
       ),
     );
-=======
-        );
-      }
-    });
->>>>>>> aeadd175487efa048c4d5d3a6dd65cb5e0c851d9
   }
 }
