@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'discover_page.dart'; // for navigation from "All"
+import 'admin/admin_panel.dart'; // for navigation from "All"
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +28,8 @@ class _HomeScreenState extends State<HomeScreen> {
     {'icon': Icons.watch, 'label': 'Watches'},
     {'icon': Icons.tag, 'label': 'Accessories'},
     {'icon': Icons.grid_view, 'label': 'All'}, // changed
+     //for admin panel navigation
+     {'icon': Icons.admin_panel_settings, 'label': 'Admin'},
   ];
 
   final List<Map<String, String>> _feature = [
@@ -51,45 +54,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Category tile: now navigates to DiscoverPage when label == 'All'
-  Widget _categoryTile(int index) {
-    final item = _categories[index];
-    final selected = _selectedCategory == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedCategory = index);
+ Widget _categoryTile(int index) {
+  final item = _categories[index];
+  final selected = _selectedCategory == index;
 
-        // Navigate to DiscoverPage when "All" is tapped
-        if (item['label'] == 'All') {
+  return GestureDetector(
+    onTap: () {
+      setState(() => _selectedCategory = index);
+
+      // ✅ Handle navigation based on label
+      switch (item['label']) {
+        case 'All':
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const DiscoverPage()),
           );
-        }
-      },
-      child: Container(
-        width: 72,
-        margin: const EdgeInsets.only(right: 12),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: selected ? const Color(0xFFF3EDE9) : Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: selected
-                    ? [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3))]
-                    : null,
-              ),
-              child: Icon(item['icon'] as IconData, color: Colors.black54, size: 22),
+          break;
+
+        default:
+          // For any other category, you can define logic here if needed
+          debugPrint('Selected category: ${item['label']}');
+      }
+    },
+    child: Container(
+      width: 72,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFF3EDE9) : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      )
+                    ]
+                  : null,
             ),
-            const SizedBox(height: 8),
-            Text(item['label'] as String, style: const TextStyle(fontSize: 12, color: Colors.black54)),
-          ],
-        ),
+            child: Icon(
+              item['icon'] as IconData,
+              color: Colors.black54,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item['label'] as String,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   // Feature card (no navigation)
   Widget _featureCard(Map<String, String> item) {

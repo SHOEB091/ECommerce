@@ -4,6 +4,7 @@ import 'package:ecommerce/screens/intro_screen.dart';
 import 'package:ecommerce/screens/signup_screen.dart';
 import 'package:ecommerce/screens/login_screen.dart';
 import 'package:ecommerce/screens/discover_page.dart';
+import 'package:ecommerce/screens/admin/admin_panel.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -34,7 +35,9 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignUpScreen(),
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
-        '/discover': (context) => const DiscoverPage(), // added discover/dashboard screen
+        '/discover': (context) => const DiscoverPage(),
+        '/admin': (context) => AdminPanel(),
+
       },
     );
   }
