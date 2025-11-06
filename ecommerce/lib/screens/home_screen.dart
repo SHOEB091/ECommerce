@@ -1,15 +1,13 @@
 // lib/screens/home_screen.dart
-import 'package:ecommerce/screens/notofications_screen.dart';
 import 'package:flutter/material.dart';
-import 'discover_page.dart'; // for navigation from "All"
-import 'chat_screen.dart'; // ensure this file exists at lib/screens/chat_screen.dart
-
-
-// product list/detail imports
+import 'chat_screen.dart';
+import 'notifications_screen.dart';
+import 'discover_page.dart';
+import 'admin/admin_panel.dart';
 import 'mens_product_list_screen.dart';
 import 'womens_product_list_screen.dart';
 import 'accessories_product_list_screen.dart';
-import 'category_detail_page.dart' hide CategoryDetailPage;
+import 'category_detail_page.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,22 +28,23 @@ class _HomeScreenState extends State<HomeScreen> {
   static const String t1 = 'assets/product_thumb1.png';
   static const String t2 = 'assets/product_thumb2.png';
 
-  final List<Map<String, dynamic>> _categories = const [
+  final List<Map<String, dynamic>> _categories = [
     {'icon': Icons.female, 'label': 'Women'},
     {'icon': Icons.male, 'label': 'Men'},
     {'icon': Icons.watch, 'label': 'Watches'},
     {'icon': Icons.tag, 'label': 'Accessories'},
     {'icon': Icons.grid_view, 'label': 'All'},
+    {'icon': Icons.admin_panel_settings, 'label': 'Admin'}, // admin action
   ];
 
-  final List<Map<String, String>> _feature = const [
+  final List<Map<String, String>> _feature = [
     {'img': p1, 'title': 'Turtleneck Sweater', 'price': '\$39.99'},
     {'img': p2, 'title': 'Long Sleeve Dress', 'price': '\$45.00'},
     {'img': p3, 'title': 'Sportwear', 'price': '\$80.00'},
     {'img': p4, 'title': 'Casual Jacket', 'price': '\$64.00'},
   ];
 
-  final List<Map<String, String>> _recommended = const [
+  final List<Map<String, String>> _recommended = [
     {'img': t1, 'title': 'White fashion hoodie', 'price': '\$29.00'},
     {'img': t2, 'title': 'Cotton shirt', 'price': '\$30.00'},
     {'img': t1, 'title': 'Striped tee', 'price': '\$20.00'},
@@ -72,32 +71,22 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openCategory(String label) {
     switch (label) {
       case 'Women':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const WomenProductListScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const WomenProductListScreen()));
         break;
       case 'Men':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const MensProductListScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const MensProductListScreen()));
         break;
       case 'Watches':
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const CategoryDetailPage(title: 'Accessories'),
-          ),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryDetailPage(title: 'Watches')));
         break;
       case 'Accessories':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => AccessoriesProductListScreen()),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (_) => AccessoriesProductListScreen()));
         break;
       case 'All':
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const DiscoverPage()),
-        );
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const DiscoverPage()));
+        break;
+      case 'Admin':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => AdminPanel()));
         break;
       default:
         break;
@@ -343,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return LayoutBuilder(builder: (context, constraints) {
       final double width = constraints.maxWidth;
-      final bool isDesktop = width >= 800; // breakpoint - tweak as needed
+      final bool isDesktop = width >= 800;
 
       Widget content = SafeArea(
         child: SingleChildScrollView(
@@ -371,7 +360,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ],
-
               const SizedBox(height: 6),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
@@ -402,7 +390,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 18),
               _sectionHeader('Feature Products', onSeeAll: () {}),
               const SizedBox(height: 12),
-
               if (!isDesktop) ...[
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -427,7 +414,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }),
               ],
-
               const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
@@ -458,7 +444,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 18),
               _sectionHeader('Recommended', onSeeAll: () {}),
               const SizedBox(height: 12),
-
               if (!isDesktop) ...[
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -606,7 +591,6 @@ class _HomeScreenState extends State<HomeScreen> {
             title: const Text('GemStore', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
             centerTitle: true,
             actions: [
-              // Notifications icon with small badge
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 6.0),
                 child: Stack(
@@ -631,15 +615,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null),
               const SizedBox(width: 8),
             ],
           ),
@@ -664,7 +639,6 @@ class _HomeScreenState extends State<HomeScreen> {
             title: const Text('GemStore', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
             centerTitle: true,
             actions: [
-              // Notifications icon with badge
               Padding(
                 padding: const EdgeInsets.only(right: 6.0),
                 child: Stack(
@@ -689,7 +663,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null),
               const SizedBox(width: 8),
             ],
           ),
