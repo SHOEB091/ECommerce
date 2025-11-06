@@ -1,27 +1,17 @@
-<<<<<<< HEAD
-// lib/screens/home_screen.dart
-=======
-<<<<<<< HEAD
-import 'package:ecommerce/screens/settings_page.dart';
-=======
-// lib/screens/home_screen.dart
->>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
->>>>>>> 69bddba (admin panel and setting page)
+
+import 'package:ecommerce/screens/notofications_screen.dart';
 import 'package:flutter/material.dart';
+
+
 import 'chat_screen.dart';
-import 'notifications_screen.dart';
+
 import 'discover_page.dart';
 import 'admin/admin_panel.dart';
 import 'mens_product_list_screen.dart';
 import 'womens_product_list_screen.dart';
 import 'accessories_product_list_screen.dart';
-import 'category_detail_page.dart';
+import 'category_detail_page.dart' hide CategoryDetailPage;
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 69bddba (admin panel and setting page)
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -73,52 +63,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
- Widget _categoryTile(int index) {
-  final item = _categories[index];
-  final selected = _selectedCategory == index;
-
-  return GestureDetector(
-    onTap: () {
-      setState(() => _selectedCategory = index);
-
-      // ✅ Handle navigation based on label
-      switch (item['label']) {
-        case 'All':
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const DiscoverPage()),
-          );
-          break;
-
-        default:
-          // For any other category, you can define logic here if needed
-          debugPrint('Selected category: ${item['label']}');
-      }
-    },
-    child: Container(
-      width: 72,
-      margin: const EdgeInsets.only(right: 12),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFFF3EDE9) : Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: selected
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      )
-                    ]
-                  : null,
-=======
->>>>>>> 69bddba (admin panel and setting page)
   // ---------- NAV HELPERS ----------
   void _openProduct(Map<String, String> product) {
     Navigator.push(
@@ -176,7 +120,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     : null,
               ),
               child: Icon(item['icon'] as IconData, color: Colors.black54, size: 22),
-<<<<<<< HEAD
             ),
             const SizedBox(height: 8),
             Text(item['label'] as String, style: const TextStyle(fontSize: 12, color: Colors.black54)),
@@ -185,27 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-=======
->>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
-            ),
-            child: Icon(
-              item['icon'] as IconData,
-              color: Colors.black54,
-              size: 22,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            item['label'] as String,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
->>>>>>> 69bddba (admin panel and setting page)
 
   Widget _featureCard(Map<String, String> item, {double? width, double imageHeight = 140}) {
     final heroTag = 'hero-${item['title']}';
@@ -399,85 +321,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 )
               ],
             ),
-<<<<<<< HEAD
           ),
           const SizedBox(height: 8),
         ],
-=======
-<<<<<<< HEAD
-
-            const SizedBox(height: 8),
-
-            // menu items
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                children: [
-                  ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {
-                    // navigate or handle
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile tapped')));
-                  }),
-                  ListTile(leading: const Icon(Icons.favorite_border), title: const Text('Wishlist'), onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wishlist tapped')));
-                  }),
-                  ListTile(leading: const Icon(Icons.shopping_bag_outlined), title: const Text('Orders'), onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Orders tapped')));
-                  }),
-                  const Divider(),
-                 ListTile(
-                     leading: const Icon(Icons.settings_outlined),
-                       title: const Text('Settings'),
-                         onTap: () {
-                           Navigator.pop(context); // close drawer first
-                              Navigator.push(
-                                 context,
-                                    MaterialPageRoute(builder: (context) => const SettingsPage()),
-                                        );
-                              },
-                          ),
-
-                  ListTile(leading: const Icon(Icons.help_outline), title: const Text('Help & Support'), onTap: () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Help tapped')));
-                  }),
-                ],
-              ),
-            ),
-
-            // bottom actions
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.login_outlined),
-                      label: const Text('Sign In'),
-                      onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign In tapped'))); },
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  IconButton(
-                    onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Log out tapped'))); },
-                    icon: const Icon(Icons.logout),
-                    tooltip: 'Log out',
-                  )
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-=======
-          ),
-          const SizedBox(height: 8),
-        ],
->>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
->>>>>>> 69bddba (admin panel and setting page)
       ),
     );
   }
@@ -518,6 +364,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
               const SizedBox(height: 6),
+
+              // Promo
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                 child: Container(
@@ -544,9 +392,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 18),
               _sectionHeader('Feature Products', onSeeAll: () {}),
               const SizedBox(height: 12),
+
               if (!isDesktop) ...[
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -571,6 +421,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }),
               ],
+
               const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
@@ -598,9 +449,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 18),
               _sectionHeader('Recommended', onSeeAll: () {}),
               const SizedBox(height: 12),
+
               if (!isDesktop) ...[
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -653,6 +506,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   }),
                 ),
               ],
+
               const SizedBox(height: 20),
               _sectionHeader('Top Collection', onSeeAll: () {}),
               const SizedBox(height: 12),
@@ -681,6 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
@@ -709,6 +564,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
+
               const SizedBox(height: 18),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
@@ -720,6 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
+
               const SizedBox(height: 28),
             ],
           ),
@@ -846,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------------- Product Details (unchanged) ----------------
+// ---------------- Product Details ----------------
 class ProductDetails extends StatelessWidget {
   final Map<String, String> product;
   const ProductDetails({super.key, required this.product});
