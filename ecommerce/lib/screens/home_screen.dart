@@ -1,6 +1,15 @@
+// lib/screens/home_screen.dart
+import 'package:ecommerce/screens/notofications_screen.dart';
 import 'package:flutter/material.dart';
 import 'discover_page.dart'; // for navigation from "All"
-import 'chat_screen.dart'; // <-- Chat screen import (make sure this file exists at lib/screens/chat_screen.dart)
+import 'chat_screen.dart'; // ensure this file exists at lib/screens/chat_screen.dart
+
+
+// product list/detail imports
+import 'mens_product_list_screen.dart';
+import 'womens_product_list_screen.dart';
+import 'accessories_product_list_screen.dart';
+import 'category_detail_page.dart' hide CategoryDetailPage;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,24 +30,22 @@ class _HomeScreenState extends State<HomeScreen> {
   static const String t1 = 'assets/product_thumb1.png';
   static const String t2 = 'assets/product_thumb2.png';
 
-  // "Beauty" changed to "All"
-  final List<Map<String, dynamic>> _categories = [
+  final List<Map<String, dynamic>> _categories = const [
     {'icon': Icons.female, 'label': 'Women'},
     {'icon': Icons.male, 'label': 'Men'},
     {'icon': Icons.watch, 'label': 'Watches'},
     {'icon': Icons.tag, 'label': 'Accessories'},
-    {'icon': Icons.grid_view, 'label': 'All'}, // changed
+    {'icon': Icons.grid_view, 'label': 'All'},
   ];
 
-  final List<Map<String, String>> _feature = [
+  final List<Map<String, String>> _feature = const [
     {'img': p1, 'title': 'Turtleneck Sweater', 'price': '\$39.99'},
     {'img': p2, 'title': 'Long Sleeve Dress', 'price': '\$45.00'},
     {'img': p3, 'title': 'Sportwear', 'price': '\$80.00'},
     {'img': p4, 'title': 'Casual Jacket', 'price': '\$64.00'},
-    // add more items to test responsiveness
   ];
 
-  final List<Map<String, String>> _recommended = [
+  final List<Map<String, String>> _recommended = const [
     {'img': t1, 'title': 'White fashion hoodie', 'price': '\$29.00'},
     {'img': t2, 'title': 'Cotton shirt', 'price': '\$30.00'},
     {'img': t1, 'title': 'Striped tee', 'price': '\$20.00'},
@@ -54,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Navigate helper: opens ProductDetails page
+  // ---------- NAV HELPERS ----------
   void _openProduct(Map<String, String> product) {
     Navigator.push(
       context,
@@ -62,21 +69,49 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Category tile: now navigates to DiscoverPage when label == 'All'
+  void _openCategory(String label) {
+    switch (label) {
+      case 'Women':
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const WomenProductListScreen()));
+        break;
+      case 'Men':
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const MensProductListScreen()));
+        break;
+      case 'Watches':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const CategoryDetailPage(title: 'Accessories'),
+          ),
+        );
+        break;
+      case 'Accessories':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AccessoriesProductListScreen()),
+        );
+        break;
+      case 'All':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const DiscoverPage()),
+        );
+        break;
+      default:
+        break;
+    }
+  }
+  // ---------- NAV HELPERS END ----------
+
   Widget _categoryTile(int index, {double size = 72}) {
     final item = _categories[index];
     final selected = _selectedCategory == index;
     return GestureDetector(
       onTap: () {
         setState(() => _selectedCategory = index);
-
-        // Navigate to DiscoverPage when "All" is tapped
-        if (item['label'] == 'All') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const DiscoverPage()),
-          );
-        }
+        _openCategory(item['label'] as String);
       },
       child: Container(
         width: size,
@@ -102,14 +137,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Feature card (used for grid and horizontal lists)
   Widget _featureCard(Map<String, String> item, {double? width, double imageHeight = 140}) {
     final heroTag = 'hero-${item['title']}';
     return InkWell(
-      onTap: () {
-        // open product details page
-        _openProduct(item);
-      },
+      onTap: () => _openProduct(item),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: width,
@@ -117,7 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // rounded image (wrapped with Hero)
             Container(
               height: imageHeight,
               decoration: BoxDecoration(
@@ -158,22 +188,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onBottomTap(int idx) {
-    // change selected index to update icon colors
     setState(() => _bottomIndex = idx);
-
-    if (idx != 0) {
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(idx == 1 ? 'Search' : idx == 2 ? 'Bag' : 'Account')));
-    }
+    if (idx == 0) return;
+    final text = idx == 1 ? 'Search' : idx == 2 ? 'Bag' : 'Account';
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
-  // Recommended thumb (navigates to ProductDetails)
   Widget _productThumb(Map<String, String> item) {
     final heroTag = 'hero-${item['title']}';
     return InkWell(
-      onTap: () {
-        _openProduct(item);
-      },
+      onTap: () => _openProduct(item),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: 160,
@@ -230,12 +254,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // drawer content extracted so we can show it both as Drawer and as permanent side panel
   Widget _drawerContent() {
     return SafeArea(
       child: Column(
         children: [
-          // header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
@@ -258,10 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // menu items
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -290,8 +309,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-
-          // bottom actions
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
             child: Row(
@@ -322,8 +339,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     const double horizontalPad = 18.0;
-
-    // bottom padding to avoid overflow: include bottom nav height + safe area
     final double bottomPadding = MediaQuery.of(context).padding.bottom + kBottomNavigationBarHeight + 16;
 
     return LayoutBuilder(builder: (context, constraints) {
@@ -336,7 +351,6 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // categories - adapt to width
               if (!isDesktop) ...[
                 SizedBox(
                   height: 92,
@@ -348,7 +362,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ] else ...[
-                // Desktop: show categories as a wrap row with larger tiles
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 12),
                   child: Wrap(
@@ -360,7 +373,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
 
               const SizedBox(height: 6),
-              // promo big card
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                 child: Container(
@@ -388,11 +400,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Feature Products header
               _sectionHeader('Feature Products', onSeeAll: () {}),
               const SizedBox(height: 12),
 
-              // If desktop -> grid; else -> horizontal scroll
               if (!isDesktop) ...[
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -400,7 +410,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(children: _feature.map((f) => _featureCard(f)).toList()),
                 ),
               ] else ...[
-                // Responsive grid: compute columns based on available width
                 LayoutBuilder(builder: (context, inner) {
                   final contentWidth = inner.maxWidth - horizontalPad * 2;
                   final int columns = (contentWidth ~/ 220).clamp(2, 6);
@@ -420,7 +429,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
 
               const SizedBox(height: 18),
-              // small promo tile
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                 child: Container(
@@ -448,7 +456,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Recommended header
               _sectionHeader('Recommended', onSeeAll: () {}),
               const SizedBox(height: 12),
 
@@ -459,7 +466,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Row(children: _recommended.map((p) => _productThumb(p)).toList()),
                 ),
               ] else ...[
-                // desktop: show recommended as grid/cards with 2-3 columns
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                   child: LayoutBuilder(builder: (context, inner) {
@@ -505,9 +511,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   }),
                 ),
               ],
-
               const SizedBox(height: 20),
-              // Top Collection
               _sectionHeader('Top Collection', onSeeAll: () {}),
               const SizedBox(height: 12),
               Padding(
@@ -536,7 +540,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              // Another promotional vertical card
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                 child: Container(
@@ -565,7 +568,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              // small tile row (two small previews)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                 child: Row(
@@ -582,21 +584,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-      // Build scaffold differently for desktop vs mobile
-      // Create a shared chat FAB so both scaffolds can use the same button
+      // small static unread count for badge — change as needed
+      const int unreadCount = 2;
+
+      // chat FAB
       final chatButton = FloatingActionButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ChatScreen()),
-          );
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
         },
         backgroundColor: Colors.blue.shade700,
         child: const Icon(Icons.chat_bubble_outline, color: Colors.white),
       );
 
       if (isDesktop) {
-        // Permanent side panel + content area
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
@@ -605,26 +605,53 @@ class _HomeScreenState extends State<HomeScreen> {
             leading: null,
             title: const Text('GemStore', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
             centerTitle: true,
-            actions: [IconButton(icon: const Icon(Icons.notifications_none, color: Colors.black87), onPressed: () {}), const SizedBox(width: 8)],
+            actions: [
+              // Notifications icon with small badge
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0),
+                child: Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_none, color: Colors.black87),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                      },
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          child: Center(child: Text(unreadCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null), // spacing
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null),
+              const SizedBox(width: 8),
+            ],
           ),
           body: Row(
             children: [
-              // left side nav - fixed width
-              Container(
-                width: 300,
-                decoration: BoxDecoration(border: Border(right: BorderSide(color: Colors.grey.shade100))),
-                child: _drawerContent(),
-              ),
-              // content
+              Container(width: 300, decoration: BoxDecoration(border: Border(right: BorderSide(color: Colors.grey.shade100))), child: _drawerContent()),
               Expanded(child: content),
             ],
           ),
-          // Add chat FAB on desktop
           floatingActionButton: chatButton,
-          // on desktop we hide bottom nav; if you'd like a navigation rail we can add it
         );
       } else {
-        // mobile scaffold with drawer & bottom navigation
         return Scaffold(
           backgroundColor: Colors.white,
           drawer: Drawer(child: _drawerContent()),
@@ -636,7 +663,35 @@ class _HomeScreenState extends State<HomeScreen> {
             }),
             title: const Text('GemStore', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w700)),
             centerTitle: true,
-            actions: [IconButton(icon: const Icon(Icons.notifications_none, color: Colors.black87), onPressed: () {}), const SizedBox(width: 8)],
+            actions: [
+              // Notifications icon with badge
+              Padding(
+                padding: const EdgeInsets.only(right: 6.0),
+                child: Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_none, color: Colors.black87),
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+                      },
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(color: Colors.redAccent, shape: BoxShape.circle),
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          child: Center(child: Text(unreadCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700))),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(icon: const Icon(Icons.notifications_none, color: Colors.transparent), onPressed: null),
+              const SizedBox(width: 8),
+            ],
           ),
           body: content,
           bottomNavigationBar: BottomNavigationBar(
@@ -645,8 +700,8 @@ class _HomeScreenState extends State<HomeScreen> {
             showSelectedLabels: false,
             showUnselectedLabels: false,
             elevation: 8,
-            selectedItemColor: Colors.blue, // selected color
-            unselectedItemColor: Colors.grey, // unselected color
+            selectedItemColor: Colors.blue,
+            unselectedItemColor: Colors.grey,
             items: [
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 0 ? Icons.home : Icons.home_outlined), label: 'Home'),
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 1 ? Icons.search : Icons.search_outlined), label: 'Search'),
@@ -654,7 +709,6 @@ class _HomeScreenState extends State<HomeScreen> {
               BottomNavigationBarItem(icon: Icon(_bottomIndex == 3 ? Icons.person : Icons.person_outline), label: 'Account'),
             ],
           ),
-          // Add chat FAB on mobile
           floatingActionButton: chatButton,
         );
       }
@@ -662,7 +716,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Simple product details screen - accepts the product map
+// ---------------- Product Details (unchanged) ----------------
 class ProductDetails extends StatelessWidget {
   final Map<String, String> product;
   const ProductDetails({super.key, required this.product});
@@ -693,7 +747,6 @@ class ProductDetails extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // image (now uses same Hero tag as on home)
             Container(
               height: 320,
               width: double.infinity,
