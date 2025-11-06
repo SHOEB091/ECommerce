@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'cart_screen.dart';
+import 'all_product_screen.dart'; // 🔹 Added import
 
 class ProductDetailScreen extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -34,6 +35,8 @@ class ProductDetailScreen extends StatelessWidget {
           const Text("Description", style: TextStyle(fontWeight: FontWeight.bold)),
           const Text("A stylish, high-quality product perfect for your collection."),
           const SizedBox(height: 20),
+          
+          // 🛒 Existing Add to Cart button
           ElevatedButton(
             onPressed: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => const CartScreen()));
@@ -43,6 +46,27 @@ class ProductDetailScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text("Add to Cart"),
+          ),
+
+          const SizedBox(height: 12),
+
+          // 🔹 New “View All Products” Button
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) =>  AllProductsScreen()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              minimumSize: const Size(double.infinity, 48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text(
+              "View All Products",
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
