@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+<<<<<<< HEAD
+=======
+import 'admin/admin_panel.dart';
+>>>>>>> 69bddba (admin panel and setting page)
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,6 +18,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
 
+<<<<<<< HEAD
+=======
+
+  final String adminEmail = "admin123@gmail.com";
+
+>>>>>>> 69bddba (admin panel and setting page)
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -21,10 +31,15 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+<<<<<<< HEAD
   // Replace this with real authentication logic (Firebase, API, etc.)
   Future<bool> _fakeAuthenticate(String email, String password) async {
     await Future.delayed(const Duration(seconds: 1));
     // demo: any non-empty credentials succeed
+=======
+  Future<bool> _fakeAuthenticate(String email, String password) async {
+    await Future.delayed(const Duration(seconds: 1));
+>>>>>>> 69bddba (admin panel and setting page)
     return email.isNotEmpty && password.isNotEmpty;
   }
 
@@ -37,7 +52,22 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = false);
 
     if (success) {
+<<<<<<< HEAD
       // Navigate to Home screen and remove Login from the stack
+=======
+      final email = _emailCtrl.text.trim();
+
+      // ✅ Admin redirect logic
+      if (email.toLowerCase() == adminEmail.toLowerCase()) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminPanel()),
+        );
+        return;
+      }
+
+      // Normal user → Home
+>>>>>>> 69bddba (admin panel and setting page)
       Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,20 +144,32 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
 
+<<<<<<< HEAD
                     // Forgot password (optional)
+=======
+>>>>>>> 69bddba (admin panel and setting page)
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
                         onPressed: () {
+<<<<<<< HEAD
                           // TODO: implement forgot password flow
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Forgot password tapped')));
+=======
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Forgot password tapped')),
+                          );
+>>>>>>> 69bddba (admin panel and setting page)
                         },
                         child: const Text('Forgot Password?'),
                       ),
                     ),
                     const SizedBox(height: 8),
 
+<<<<<<< HEAD
                     // Login button
+=======
+>>>>>>> 69bddba (admin panel and setting page)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -148,12 +190,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
 
+<<<<<<< HEAD
                     // Social sign-in row
+=======
+>>>>>>> 69bddba (admin panel and setting page)
                     const Text('or log in with', style: TextStyle(color: Colors.grey)),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+<<<<<<< HEAD
                         _socialIcon(Icons.apple, () {
                           // TODO: Apple sign in
                         }),
@@ -171,6 +217,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
 
                     // Link to Sign Up
+=======
+                        _socialIcon(Icons.apple, () {}),
+                        const SizedBox(width: 14),
+                        _socialIcon(Icons.g_mobiledata, () {}),
+                        const SizedBox(width: 14),
+                        _socialIcon(Icons.facebook, () {}),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+>>>>>>> 69bddba (admin panel and setting page)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -178,7 +234,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(width: 8),
                         InkWell(
                           onTap: () => Navigator.pushReplacementNamed(context, '/signup'),
+<<<<<<< HEAD
                           child: Text('Sign Up', style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600)),
+=======
+                          child: Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+>>>>>>> 69bddba (admin panel and setting page)
                         ),
                       ],
                     ),

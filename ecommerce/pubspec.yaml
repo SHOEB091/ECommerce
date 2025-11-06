@@ -23,7 +23,14 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
   uuid: ^4.5.2
+<<<<<<< HEAD
   intl: ^0.20.2
+=======
+<<<<<<< HEAD
+=======
+  intl: ^0.20.2
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
+>>>>>>> 69bddba (admin panel and setting page)
 
 dev_dependencies:
   flutter_test:
@@ -32,6 +39,41 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+  # assets:
+  #   - assets/sample_image1.jpg
+  #   - assets/sample_img_2.jpg
+  #   - assets/sample_img3.jpg
+  #   - assets/sample_img4.jpg
+  #   - assets/sample5.jpg
+  #   - assets/sample6.jpg
+  #   - assets/sample7.jpg
+  #   - assets/sample8.jpg
+  #   - assets/sample10.jpg
+  #   - assets/watch.jpg
+  #   - assets/shirt.jpg
+  #   - assets/cap.jpg
+  #   - assets/bag.jpg
+  #   - assets/chasma.jpg
+  #   - assets/purse.jpg
+  #   - assets/sample9.jpg
+  #   - assets/tshirt.jpg
+  #   - assets/perfume.jpg
+  #   - assets/keychain.jpg
+  #   - assets/belt.jpg
+  #   - assets/makeup.jpg
+  #   - assets/giftbox.jpg
+  #   - assets/towel.jpg
+    
+    
+
+      
+
+=======
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
+>>>>>>> 69bddba (admin panel and setting page)
 
   # Include your assets folder (images etc.)
   assets:
