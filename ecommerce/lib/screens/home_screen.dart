@@ -1,10 +1,14 @@
-
+// lib/screens/home_screen.dart
+import 'dart:math';
+import 'package:ecommerce/screens/all_product_screen.dart';
 import 'package:ecommerce/screens/notofications_screen.dart';
+import 'package:ecommerce/screens/profile_page.dart';
+import 'package:ecommerce/screens/settingPage.dart';
 import 'package:flutter/material.dart';
-
+import 'package:ecommerce/screens/orders_page.dart';
+import 'package:ecommerce/screens/help_support_screen.dart';
 
 import 'chat_screen.dart';
-
 import 'discover_page.dart';
 import 'admin/admin_panel.dart';
 import 'mens_product_list_screen.dart';
@@ -37,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     {'icon': Icons.watch, 'label': 'Watches'},
     {'icon': Icons.tag, 'label': 'Accessories'},
     {'icon': Icons.grid_view, 'label': 'All'},
-    {'icon': Icons.admin_panel_settings, 'label': 'Admin'}, // admin action
+    {'icon': Icons.admin_panel_settings, 'label': 'Admin'},
   ];
 
   final List<Map<String, String>> _feature = [
@@ -53,9 +57,10 @@ class _HomeScreenState extends State<HomeScreen> {
     {'img': t1, 'title': 'Striped tee', 'price': '\$20.00'},
   ];
 
-  Widget _imageFallback({double? height}) {
+  Widget _imageFallback({double? height, double? width}) {
     return Container(
       height: height,
+      width: width,
       color: Colors.grey[100],
       child: const Center(
         child: Icon(Icons.image_not_supported, size: 34, color: Colors.grey),
@@ -95,7 +100,6 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
     }
   }
-  // ---------- NAV HELPERS END ----------
 
   Widget _categoryTile(int index, {double size = 72}) {
     final item = _categories[index];
@@ -129,41 +133,88 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _featureCard(Map<String, String> item, {double? width, double imageHeight = 140}) {
+  /// Defensive helper: resolve visual width in the presence of infinite constraints.
+  double _resolveVisualWidth(BoxConstraints constraints, double? providedWidth) {
+    if (providedWidth != null && providedWidth.isFinite) return providedWidth;
+    if (constraints.maxWidth.isFinite && constraints.maxWidth > 0) return constraints.maxWidth;
+    // fallback: use device width * 0.9 to ensure sane finite width for calculations
+    final double fallback = MediaQuery.of(context).size.width * 0.9;
+    return fallback > 0 ? fallback : 360.0;
+  }
+
+  /// Cached asset helper (defensive for unbounded constraints)
+  Widget _CachedAssetImage(String assetPath, {double? targetWidth, double? targetHeight, BoxFit fit = BoxFit.cover, double borderRadius = 12}) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final double visualWidth = _resolveVisualWidth(constraints, targetWidth);
+      final double dpr = MediaQuery.of(context).devicePixelRatio;
+      final int cacheW = max(1, (visualWidth * dpr).round());
+      return Container(
+        height: targetHeight,
+        decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(borderRadius)),
+        clipBehavior: Clip.hardEdge,
+        child: Image.asset(
+          assetPath,
+          width: visualWidth,
+          height: targetHeight,
+          fit: fit,
+          cacheWidth: cacheW,
+          frameBuilder: (context, child, frame, wasSync) {
+            if (wasSync) return child;
+            return AnimatedOpacity(opacity: frame == null ? 0 : 1, duration: const Duration(milliseconds: 200), child: child);
+          },
+          errorBuilder: (_, __, ___) => _imageFallback(height: targetHeight, width: targetWidth),
+        ),
+      );
+    });
+  }
+
+  /// Feature card (fixed image height on mobile so image fits)
+  Widget _featureCard(Map<String, String> item, {double? width}) {
     final heroTag = 'hero-${item['title']}';
-    return InkWell(
-      onTap: () => _openProduct(item),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: width,
-        margin: const EdgeInsets.only(right: 14, bottom: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: imageHeight,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              clipBehavior: Clip.hardEdge,
-              child: Hero(
-                tag: heroTag,
-                child: Image.asset(
-                  item['img']!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
+    return LayoutBuilder(builder: (context, constraints) {
+      final cardWidth = _resolveVisualWidth(constraints, width);
+
+      // --- Fix for mobile: make image height smaller so whole image is visible inside card ---
+      // If width passed (desktop grid) use proportional height, otherwise use compact mobile-friendly height.
+      final bool isDesktopGrid = width != null && width.isFinite;
+      final double imageHeight = isDesktopGrid
+          ? (cardWidth * 0.6).clamp(120.0, 260.0)
+          : (cardWidth * 0.45).clamp(96.0, 140.0); // smaller on mobile to avoid cropping
+
+      return InkWell(
+        onTap: () => _openProduct(item),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: width,
+          margin: const EdgeInsets.only(right: 14, bottom: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: imageHeight,
+                decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
+                clipBehavior: Clip.hardEdge,
+                child: Hero(
+                  tag: heroTag,
+                  child: Image.asset(
+                    item['img']!,
+                    fit: BoxFit.cover,
+                    width: cardWidth,
+                    height: imageHeight,
+                    cacheWidth: max(1, (cardWidth * MediaQuery.of(context).devicePixelRatio).round()),
+                    errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Text(item['title']!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Text(item['price']!, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          ],
+              const SizedBox(height: 10),
+              Text(item['title']!, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(item['price']!, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _sectionHeader(String title, {VoidCallback? onSeeAll}) {
@@ -181,43 +232,59 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onBottomTap(int idx) {
     setState(() => _bottomIndex = idx);
-    if (idx == 0) return;
-    final text = idx == 1 ? 'Search' : idx == 2 ? 'Bag' : 'Account';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
+    if (idx == 0) {
+      // Home selected — keep current screen
+      return;
+    } else if (idx == 1) {
+      // Search
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Search tapped')));
+    } else if (idx == 2) {
+      // Bag -> navigate to AllProductsScreen
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AllProductsScreen()));
+    } else if (idx == 3) {
+      // Account
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
+    }
   }
 
+  /// Responsive product thumbnail: uses safe width fallback
   Widget _productThumb(Map<String, String> item) {
     final heroTag = 'hero-${item['title']}';
-    return InkWell(
-      onTap: () => _openProduct(item),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 160,
-        margin: const EdgeInsets.only(right: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
-              clipBehavior: Clip.hardEdge,
-              child: Hero(
-                tag: heroTag,
-                child: Image.asset(item['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+    return LayoutBuilder(builder: (context, constraints) {
+      final double usableWidth = _resolveVisualWidth(constraints, null);
+      final double imageSize = (usableWidth * 0.18).clamp(48.0, 80.0);
+      return InkWell(
+        onTap: () => _openProduct(item),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 160,
+          margin: const EdgeInsets.only(right: 12),
+          child: Row(
+            children: [
+              Container(
+                width: imageSize,
+                height: imageSize,
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
+                clipBehavior: Clip.hardEdge,
+                child: Hero(
+                  tag: heroTag,
+                  child: Image.asset(item['img']!, fit: BoxFit.cover, cacheWidth: (imageSize * MediaQuery.of(context).devicePixelRatio).round(), errorBuilder: (_, __, ___) => _imageFallback(height: imageSize)),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(item['title']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Text(item['price']!, style: const TextStyle(color: Colors.grey)),
-              ]),
-            ),
-          ],
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(item['title']!, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Text(item['price']!, style: const TextStyle(color: Colors.grey)),
+                ]),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _smallTile(String title, String asset) {
@@ -234,12 +301,14 @@ class _HomeScreenState extends State<HomeScreen> {
               const Text('Browse', style: TextStyle(color: Colors.grey)),
             ]),
           ),
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
-            clipBehavior: Clip.hardEdge,
-            child: Image.asset(asset, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+          AspectRatio(
+            aspectRatio: 1,
+            child: Container(
+              margin: const EdgeInsets.only(left: 8),
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
+              clipBehavior: Clip.hardEdge,
+              child: _CachedAssetImage(asset, borderRadius: 10),
+            ),
           ),
         ],
       ),
@@ -279,24 +348,24 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile tapped')));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
                 }),
-                ListTile(leading: const Icon(Icons.favorite_border), title: const Text('Wishlist'), onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wishlist tapped')));
+                ListTile(leading: const Icon(Icons.favorite_border), title: const Text('All Products'), onTap: () {
+                  Navigator.pop(context); // close drawer
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => AllProductsScreen()));
                 }),
                 ListTile(leading: const Icon(Icons.shopping_bag_outlined), title: const Text('Orders'), onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Orders tapped')));
+                  Navigator.pop(context); // close drawer first
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersPage()));
                 }),
                 const Divider(),
                 ListTile(leading: const Icon(Icons.settings_outlined), title: const Text('Settings'), onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Settings tapped')));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingPage()));
                 }),
                 ListTile(leading: const Icon(Icons.help_outline), title: const Text('Help & Support'), onTap: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Help tapped')));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen()));
                 }),
               ],
             ),
@@ -372,24 +441,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: isDesktop ? 240 : 140,
                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), color: Colors.grey[100]),
                   clipBehavior: Clip.hardEdge,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(
-                        promo,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(color: Colors.grey[100], child: const Center(child: Icon(Icons.local_offer_outlined, size: 44, color: Colors.grey))),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.28), Colors.transparent]),
-                        ),
-                        padding: const EdgeInsets.all(14),
-                        alignment: Alignment.bottomLeft,
-                        child: const Text('Autumn Collection\n2021', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16)),
-                      ),
-                    ],
-                  ),
+                  child: _CachedAssetImage(promo, targetHeight: isDesktop ? 240 : 140, borderRadius: 14),
                 ),
               ),
 
@@ -401,12 +453,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
-                  child: Row(children: _feature.map((f) => _featureCard(f)).toList()),
+                  child: Row(children: _feature.map((f) => SizedBox(width: 160, child: _featureCard(f))).toList()),
                 ),
               ] else ...[
                 LayoutBuilder(builder: (context, inner) {
                   final contentWidth = inner.maxWidth - horizontalPad * 2;
                   final int columns = (contentWidth ~/ 220).clamp(2, 6);
+                  final double itemWidth = (contentWidth - (columns - 1) * 14) / columns;
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: horizontalPad),
                     child: GridView.count(
@@ -416,7 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisSpacing: 14,
                       mainAxisSpacing: 14,
                       childAspectRatio: 0.72,
-                      children: _feature.map((f) => _featureCard(f, width: double.infinity, imageHeight: 160)).toList(),
+                      children: _feature.map((f) => _featureCard(f, width: itemWidth)).toList(),
                     ),
                   );
                 }),
@@ -443,7 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 76,
                         decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
                         clipBehavior: Clip.hardEdge,
-                        child: Image.asset(p1, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+                        child: _CachedAssetImage(p1, targetWidth: 76, targetHeight: 76, borderRadius: 10),
                       ),
                     ],
                   ),
@@ -486,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 72,
                                   decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
                                   clipBehavior: Clip.hardEdge,
-                                  child: Image.asset(p['img']!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+                                  child: _CachedAssetImage(p['img']!, targetWidth: 72, targetHeight: 72, borderRadius: 8),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
@@ -529,7 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 86,
                         decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
                         clipBehavior: Clip.hardEdge,
-                        child: Image.asset(p3, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+                        child: _CachedAssetImage(p3, targetWidth: 86, targetHeight: 86, borderRadius: 10),
                       ),
                     ],
                   ),
@@ -550,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 86,
                         decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
                         clipBehavior: Clip.hardEdge,
-                        child: Image.asset(p4, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback()),
+                        child: _CachedAssetImage(p4, targetWidth: 86, targetHeight: 86, borderRadius: 10),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -583,10 +636,8 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
 
-      // small static unread count for badge — change as needed
       const int unreadCount = 2;
 
-      // chat FAB
       final chatButton = FloatingActionButton(
         onPressed: () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
@@ -703,17 +754,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ---------------- Product Details ----------------
+/// ProductDetails: improved desktop layout so image shows fully and details scroll if needed
 class ProductDetails extends StatelessWidget {
   final Map<String, String> product;
   const ProductDetails({super.key, required this.product});
 
   Widget _imageFallback({double? height}) {
-    return Container(
-      height: height,
-      color: Colors.grey[100],
-      child: const Center(child: Icon(Icons.image_not_supported, size: 44, color: Colors.grey)),
-    );
+    return Container(height: height, color: Colors.grey[100], child: const Center(child: Icon(Icons.image_not_supported, size: 44, color: Colors.grey)));
   }
 
   @override
@@ -721,6 +768,125 @@ class ProductDetails extends StatelessWidget {
     final title = product['title'] ?? 'Product';
     final price = product['price'] ?? '';
     final img = product['img'];
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 900;
+
+    if (isDesktop) {
+      // Desktop: left column image shows full image (BoxFit.contain) and is constrained,
+      // right column is scrollable so description won't be clipped.
+      final double leftWidth = min(520, screenWidth * 0.42);
+      final double imgHeight = leftWidth * 0.95;
+
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(title, style: const TextStyle(color: Colors.black87)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.black87),
+        ),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left: image + small thumbs
+                  SizedBox(
+                    width: leftWidth,
+                    child: Column(
+                      children: [
+                        Container(
+                          height: imgHeight,
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]),
+                          clipBehavior: Clip.hardEdge,
+                          child: img != null
+                              ? Hero(
+                                  tag: 'hero-${product['title']}',
+                                  child: Image.asset(
+                                    img,
+                                    fit: BoxFit.contain, // show full image (no cropping)
+                                    width: leftWidth,
+                                    height: imgHeight,
+                                    cacheWidth: max(1, (leftWidth * MediaQuery.of(context).devicePixelRatio).round()),
+                                  ),
+                                )
+                              : _imageFallback(height: imgHeight),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 72,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              const SizedBox(width: 6),
+                              _smallThumb(img),
+                              const SizedBox(width: 8),
+                              _smallThumb(img),
+                              const SizedBox(width: 8),
+                              _smallThumb(img),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(width: 28),
+
+                  // Right: details (scrollable)
+                  Expanded(
+                    child: SizedBox(
+                      // make details scroll independently if content is tall
+                      height: MediaQuery.of(context).size.height - kToolbarHeight - 40,
+                      child: SingleChildScrollView(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 10),
+                          Text(price, style: const TextStyle(fontSize: 20, color: Colors.grey)),
+                          const SizedBox(height: 14),
+                          const Text('Description', style: TextStyle(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'This is a sample product description. Replace this with real product details: sizes, materials, care instructions, and any other relevant information you want to show to customers.',
+                            style: TextStyle(color: Colors.black87, height: 1.45),
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to cart')));
+                                  },
+                                  icon: const Icon(Icons.add_shopping_cart),
+                                  label: const Text('Add to cart'),
+                                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)), child: const Text('Close')),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Mobile layout (unchanged aside from sensible heights)
+    final screenHeight = MediaQuery.of(context).size.height;
+    final imageHeight = (screenHeight * 0.45).clamp(260.0, 520.0);
 
     return Scaffold(
       appBar: AppBar(
@@ -735,16 +901,21 @@ class ProductDetails extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 320,
+              height: imageHeight,
               width: double.infinity,
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]),
               clipBehavior: Clip.hardEdge,
               child: img != null
                   ? Hero(
                       tag: 'hero-${product['title']}',
-                      child: Image.asset(img, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(height: 320)),
+                      child: Image.asset(
+                        img,
+                        fit: BoxFit.cover,
+                        cacheWidth: max(1, (MediaQuery.of(context).size.width * MediaQuery.of(context).devicePixelRatio).round()),
+                        errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight),
+                      ),
                     )
-                  : _imageFallback(height: 320),
+                  : _imageFallback(height: imageHeight),
             ),
             const SizedBox(height: 18),
             Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
@@ -787,6 +958,19 @@ class ProductDetails extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _smallThumb(String? asset) {
+    if (asset == null) return const SizedBox();
+    final int cacheW = max(1, (84 * MediaQueryData.fromWindow(WidgetsBinding.instance.window).devicePixelRatio).round());
+    return Container(
+      width: 72,
+      height: 72,
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
+      clipBehavior: Clip.hardEdge,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      child: Image.asset(asset, fit: BoxFit.cover, cacheWidth: cacheW, errorBuilder: (_, __, ___) => Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported))),
     );
   }
 }

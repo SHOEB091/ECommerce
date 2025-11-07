@@ -6,7 +6,7 @@ class CategoryDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Define category items with images + descriptions
+    
     final Map<String, List<Map<String, dynamic>>> categoryItems = {
       'Clothing': [
         {
@@ -102,7 +102,7 @@ class CategoryDetailPage extends StatelessWidget {
       ],
     };
 
-    // Fetch data for tapped category
+    
     final items = categoryItems[title] ?? [];
 
     return Scaffold(
