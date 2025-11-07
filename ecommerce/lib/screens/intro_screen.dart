@@ -45,7 +45,6 @@ class _IntroScreenState extends State<IntroScreen> {
     }
   }
 
-  // Image helper: cacheWidth + fade-in
   Widget _assetImage(String path, double targetWidth, double targetHeight) {
     final double dpr = MediaQuery.of(context).devicePixelRatio;
     final int cacheW = max(1, (targetWidth * dpr).round());
@@ -74,18 +73,14 @@ class _IntroScreenState extends State<IntroScreen> {
   Widget _mobilePage(BuildContext context, _IntroItem item) {
     final size = MediaQuery.of(context).size;
     final double width = size.width;
-    // Use a tall aspect (16/9) but fill vertical; we'll cover with BoxFit.cover
     final double targetHeight = size.height;
     final double targetWidth = width;
 
     return Stack(
       children: [
-        // full-bleed image
-        Positioned.fill(
-          child: _assetImage(item.image, targetWidth, targetHeight),
-        ),
+        Positioned.fill(child: _assetImage(item.image, targetWidth, targetHeight)),
 
-        // subtle top gradient to avoid clash with status bar / notch
+        // Light gradient overlay for readability
         Positioned(
           top: 0,
           left: 0,
@@ -94,7 +89,7 @@ class _IntroScreenState extends State<IntroScreen> {
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.black.withOpacity(0.18), Colors.transparent],
+                colors: [Colors.white.withOpacity(0.9), Colors.transparent],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
               ),
@@ -102,7 +97,6 @@ class _IntroScreenState extends State<IntroScreen> {
           ),
         ),
 
-        // bottom blurred/gradient overlay to make text readable
         Positioned(
           left: 0,
           right: 0,
@@ -111,7 +105,7 @@ class _IntroScreenState extends State<IntroScreen> {
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.transparent, Colors.black.withOpacity(0.55)],
+                colors: [Colors.transparent, Colors.white.withOpacity(0.95)],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 stops: const [0.35, 1.0],
@@ -120,7 +114,6 @@ class _IntroScreenState extends State<IntroScreen> {
           ),
         ),
 
-        // Content overlay (title + subtitle) near bottom-left
         Positioned(
           left: 20,
           right: 20,
@@ -131,22 +124,21 @@ class _IntroScreenState extends State<IntroScreen> {
               Text(
                 item.title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: Colors.black87,
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  shadows: [Shadow(color: Colors.black45, blurRadius: 8)],
+                  shadows: [Shadow(color: Colors.white70, blurRadius: 4)],
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 item.subtitle,
-                style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.35),
+                style: const TextStyle(color: Colors.black54, fontSize: 14, height: 1.35),
               ),
             ],
           ),
         ),
 
-        // Bottom controls container (white) with dots + CTA floating above bottom safe area
         Positioned(
           left: 0,
           right: 0,
@@ -158,7 +150,6 @@ class _IntroScreenState extends State<IntroScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
-                  // Dots centered
                   Expanded(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -177,19 +168,17 @@ class _IntroScreenState extends State<IntroScreen> {
                       }),
                     ),
                   ),
-
-                  // CTA pill (floating, but in row)
                   ElevatedButton(
                     onPressed: _next,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF372726),
+                      backgroundColor: Colors.black87,
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-                      elevation: 6,
+                      elevation: 4,
                     ),
                     child: Text(
                       _page == _items.length - 1 ? 'Get Started' : 'Shop now',
-                      style: const TextStyle(fontSize: 15),
+                      style: const TextStyle(fontSize: 15, color: Colors.white),
                     ),
                   ),
                 ],
@@ -201,7 +190,7 @@ class _IntroScreenState extends State<IntroScreen> {
     );
   }
 
-  // Two-column desktop / tablet page (kept as earlier)
+  // Desktop layout (light theme)
   Widget _desktopPage(BuildContext context, _IntroItem item, double w, double h) {
     final double leftMax = (w * 0.46).clamp(320.0, 720.0);
     const double imgAspect = 3 / 2;
@@ -216,14 +205,13 @@ class _IntroScreenState extends State<IntroScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Left image column
               Expanded(
                 flex: 5,
                 child: Container(
                   width: cardW + 18,
                   height: cardH + 14,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
+                    color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 18, offset: const Offset(0, 8))],
                   ),
@@ -236,7 +224,7 @@ class _IntroScreenState extends State<IntroScreen> {
                         child: Container(
                           width: max(28, cardW * 0.07),
                           height: cardH * 0.56,
-                          decoration: BoxDecoration(color: const Color(0xFFEDEDED), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                       Positioned(
@@ -245,7 +233,7 @@ class _IntroScreenState extends State<IntroScreen> {
                         child: Container(
                           width: max(28, cardW * 0.07),
                           height: cardH * 0.56,
-                          decoration: BoxDecoration(color: const Color(0xFFEDEDED), borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                       Positioned(
@@ -263,10 +251,7 @@ class _IntroScreenState extends State<IntroScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 36),
-
-              // Right content column
               Expanded(
                 flex: 6,
                 child: Container(
@@ -302,12 +287,15 @@ class _IntroScreenState extends State<IntroScreen> {
                           ElevatedButton(
                             onPressed: _next,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF372726),
+                              backgroundColor: Colors.black87,
                               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
                               elevation: 6,
                             ),
-                            child: Text(_page == _items.length - 1 ? 'Get Started' : 'Shop now', style: const TextStyle(fontSize: 16)),
+                            child: Text(
+                              _page == _items.length - 1 ? 'Get Started' : 'Shop now',
+                              style: const TextStyle(fontSize: 16, color: Colors.white),
+                            ),
                           ),
                         ],
                       ),
@@ -329,7 +317,7 @@ class _IntroScreenState extends State<IntroScreen> {
     final bool large = w >= 900;
 
     return Scaffold(
-      backgroundColor: Colors.black, // behind images while loading
+      backgroundColor: Colors.white,
       body: PageView.builder(
         controller: _pc,
         itemCount: _items.length,

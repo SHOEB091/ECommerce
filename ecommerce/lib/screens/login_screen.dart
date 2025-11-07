@@ -17,7 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
 
-  // Admin login email (replace if needed)
+  
   final String adminEmail = "admin123@gmail.com";
 
   @override
@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // The actual form widget extracted for reuse
+  
   Widget _buildForm(BuildContext context, {double? width}) {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -113,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
 
-              // Password
+        
               TextFormField(
                 controller: _pwdCtrl,
                 obscureText: _obscure,
@@ -147,7 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
 
-              // Login button
+        
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -219,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     );
 
-    // If width provided, allow some horizontal padding.
+    
     if (width != null) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -232,13 +232,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Use a subtle background on wide screens to differentiate
+      
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
 
-            // Mobile / narrow: single column scrollable
+            
             if (w < 700) {
               return SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
@@ -246,9 +246,9 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             }
 
-            // Tablet / Desktop / Wide screens: two-column centered card
+          
             final cardMaxWidth = w > 1100 ? 1000.0 : w * 0.9;
-            // Within card, split into visual + form: left image/branding, right form
+            
             return Center(
               child: Container(
                 width: cardMaxWidth,
@@ -261,7 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: Row(
                     children: [
-                      // Left side: illustration / brand area
+                      
                       Expanded(
                         flex: 5,
                         child: Container(
@@ -271,7 +271,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               topLeft: Radius.circular(12),
                               bottomLeft: Radius.circular(12),
                             ),
-                            // subtle gradient
+                            
                             gradient: LinearGradient(
                               colors: [
                                 Theme.of(context).colorScheme.primary.withOpacity(0.08),
@@ -284,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // You can place a logo here
+                              
                               SizedBox(
                                 height: 40,
                                 child: Text(
@@ -319,7 +319,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
 
-                      // Right side: form
+                      
                       Expanded(
                         flex: 6,
                         child: Padding(
