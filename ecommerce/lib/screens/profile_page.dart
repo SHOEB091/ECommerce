@@ -1,10 +1,107 @@
-// lib/screens/profile_page.dart
 import 'package:flutter/material.dart';
 import 'profile_setting_page.dart';
 import 'package:ecommerce/screens/home_screen.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  // Example subfield data for each option — replace with real data or wire to your backend
+  final List<String> _addressLines = [
+    'Home',
+    '12/4 MG Road, New Delhi, 110001',
+  ];
+  String _paymentMethod = 'Visa •••• 4242';
+  int _voucherCount = 2;
+  int _wishlistCount = 7;
+  double _appRating = 4.6;
+
+  void _onAddressTap() {
+    // navigate to address screen or show details
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Addresses'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: _addressLines.map((l) => Text(l)).toList(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _onPaymentTap() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment method'),
+        content: Text(_paymentMethod),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _onVoucherTap() {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('You have $_voucherCount vouchers')));
+  }
+
+  void _onWishlistTap() {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileSettingPage()));
+  }
+
+  void _onRateAppTap() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rate this app'),
+        content: Row(
+          children: [
+            const Icon(Icons.star, color: Colors.amber),
+            const SizedBox(width: 8),
+            Text('$_appRating'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _onLogout() {
+    // perform logout
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+                (route) => false,
+              );
+            },
+            child: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,14 +161,44 @@ class ProfilePage extends StatelessWidget {
           ),
         );
 
-        // Options list
+        // Options list with subfields
         final options = <_OptionItem>[
-          _OptionItem(Icons.location_on_outlined, 'Address', () {}),
-          _OptionItem(Icons.credit_card, 'Payment method', () {}),
-          _OptionItem(Icons.card_giftcard, 'Voucher', () {}),
-          _OptionItem(Icons.favorite_border, 'My Wishlist', () {}),
-          _OptionItem(Icons.star_border, 'Rate this app', () {}),
-          _OptionItem(Icons.logout, 'Log out', () {}, color: Colors.redAccent),
+          _OptionItem(
+            Icons.location_on_outlined,
+            'Address',
+            _onAddressTap,
+            subtitle: _addressLines.join('\n'),
+          ),
+          _OptionItem(
+            Icons.credit_card,
+            'Payment method',
+            _onPaymentTap,
+            subtitle: _paymentMethod,
+          ),
+          _OptionItem(
+            Icons.card_giftcard,
+            'Voucher',
+            _onVoucherTap,
+            subtitle: '$_voucherCount available',
+          ),
+          _OptionItem(
+            Icons.favorite_border,
+            'My Wishlist',
+            _onWishlistTap,
+            subtitle: '$_wishlistCount items',
+          ),
+          _OptionItem(
+            Icons.star_border,
+            'Rate this app',
+            _onRateAppTap,
+            subtitle: 'Current rating: $_appRating',
+          ),
+          _OptionItem(
+            Icons.logout,
+            'Log out',
+            _onLogout,
+            color: Colors.redAccent,
+          ),
         ];
 
         Widget optionsList = ListView.separated(
@@ -87,6 +214,7 @@ class ProfilePage extends StatelessWidget {
               child: ListTile(
                 leading: Icon(it.icon, color: it.color ?? Colors.grey.shade700),
                 title: Text(it.title, style: const TextStyle(fontSize: 15)),
+                subtitle: it.subtitle != null ? Text(it.subtitle!) : null,
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: it.onTap,
               ),
@@ -191,5 +319,7 @@ class _OptionItem {
   final String title;
   final VoidCallback onTap;
   final Color? color;
-  const _OptionItem(this.icon, this.title, this.onTap, {this.color});
+  final String? subtitle;
+
+  const _OptionItem(this.icon, this.title, this.onTap, {this.color, this.subtitle});
 }
