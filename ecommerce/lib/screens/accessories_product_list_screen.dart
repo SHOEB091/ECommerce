@@ -4,10 +4,12 @@ class AccessoriesProductListScreen extends StatefulWidget {
   const AccessoriesProductListScreen({super.key});
 
   @override
-  State<AccessoriesProductListScreen> createState() => _AccessoriesProductListScreenState();
+  State<AccessoriesProductListScreen> createState() =>
+      _AccessoriesProductListScreenState();
 }
 
-class _AccessoriesProductListScreenState extends State<AccessoriesProductListScreen> {
+class _AccessoriesProductListScreenState
+    extends State<AccessoriesProductListScreen> {
   final List<Map<String, dynamic>> _allProducts = [
     {
       "name": "Leather Wallet",
@@ -77,7 +79,6 @@ class _AccessoriesProductListScreenState extends State<AccessoriesProductListScr
 
   late List<Map<String, dynamic>> _filteredProducts;
 
-  // Filter controls
   double _minRating = 0.0;
   double _maxPrice = 200.0;
   String _sort = 'none'; // 'none', 'price_asc', 'price_desc', 'rating_desc'
@@ -109,7 +110,6 @@ class _AccessoriesProductListScreenState extends State<AccessoriesProductListScr
   }
 
   void _openFilterSheet() {
-    // show a modal bottom sheet with filter options
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -133,10 +133,10 @@ class _AccessoriesProductListScreenState extends State<AccessoriesProductListScr
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('Filter',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     TextButton(
                       onPressed: () {
-                        // reset
                         setModalState(() {
                           localMinRating = 0.0;
                           localMaxPrice = 200.0;
@@ -169,67 +169,41 @@ class _AccessoriesProductListScreenState extends State<AccessoriesProductListScr
                 ),
                 const SizedBox(height: 8),
                 const Text('Sort by'),
-                Row(
+                Wrap(
+                  spacing: 10,
                   children: [
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'none',
-                        groupValue: localSort,
-                        title: const Text('None'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
+                    ChoiceChip(
+                      label: const Text('None'),
+                      selected: localSort == 'none',
+                      onSelected: (_) => setModalState(() => localSort = 'none'),
                     ),
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'price_asc',
-                        groupValue: localSort,
-                        title: const Text('Price ↑'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
+                    ChoiceChip(
+                      label: const Text('Price ↑'),
+                      selected: localSort == 'price_asc',
+                      onSelected: (_) => setModalState(() => localSort = 'price_asc'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Price ↓'),
+                      selected: localSort == 'price_desc',
+                      onSelected: (_) => setModalState(() => localSort = 'price_desc'),
+                    ),
+                    ChoiceChip(
+                      label: const Text('Rating'),
+                      selected: localSort == 'rating_desc',
+                      onSelected: (_) => setModalState(() => localSort = 'rating_desc'),
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'price_desc',
-                        groupValue: localSort,
-                        title: const Text('Price ↓'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'rating_desc',
-                        groupValue: localSort,
-                        title: const Text('Rating'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          // apply and close
-                          _minRating = localMinRating;
-                          _maxPrice = localMaxPrice;
-                          _sort = localSort;
-                          _applyFilters();
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Apply'),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    _minRating = localMinRating;
+                    _maxPrice = localMaxPrice;
+                    _sort = localSort;
+                    _applyFilters();
+                    Navigator.of(context).pop();
+                  },
+                  child: const Center(child: Text('Apply')),
                 ),
                 const SizedBox(height: 20),
               ],
@@ -242,116 +216,133 @@ class _AccessoriesProductListScreenState extends State<AccessoriesProductListScr
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-        title: const Text(
-          "Accessories",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.filter_list_rounded, color: Colors.black),
-              onPressed: _openFilterSheet,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        int crossAxisCount = 2;
+        double aspectRatio = 0.6;
+
+        if (width >= 1200) {
+          crossAxisCount = 5;
+          aspectRatio = 0.8;
+        } else if (width >= 900) {
+          crossAxisCount = 4;
+          aspectRatio = 0.7;
+        } else if (width >= 600) {
+          crossAxisCount = 3;
+          aspectRatio = 0.65;
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            title: const Text(
+              "Accessories",
+              style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+            centerTitle: true,
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: IconButton(
+                  icon: const Icon(Icons.filter_list_rounded, color: Colors.black),
+                  onPressed: _openFilterSheet,
+                ),
+              ),
+            ],
+          ),
+          body: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: width > 900 ? 60 : 16,
+              vertical: 10,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Found ${_filteredProducts.length} Results",
+                  style: const TextStyle(fontSize: 15, color: Colors.grey),
+                ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      mainAxisSpacing: 20,
+                      crossAxisSpacing: 15,
+                      childAspectRatio: aspectRatio,
+                    ),
+                    itemCount: _filteredProducts.length,
+                    itemBuilder: (context, index) {
+                      final product = _filteredProducts[index];
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  product["image"],
+                                  fit: BoxFit.cover,
+                                  height: width > 900 ? 250 : 210,
+                                  width: double.infinity,
+                                ),
+                              ),
+                              const Positioned(
+                                top: 8,
+                                right: 8,
+                                child: CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: Colors.white,
+                                  child: Icon(Icons.favorite_border,
+                                      color: Colors.black, size: 18),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            product["name"],
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            product["priceLabel"],
+                            style: const TextStyle(
+                                color: Colors.black, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              const Icon(Icons.star,
+                                  color: Colors.amber, size: 16),
+                              const SizedBox(width: 3),
+                              Text("${product["rating"]}",
+                                  style: const TextStyle(fontSize: 13)),
+                              const SizedBox(width: 3),
+                              Text("(${product["reviews"]})",
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Found ${_filteredProducts.length} Results",
-              style: const TextStyle(
-                fontSize: 15,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 20,
-                  crossAxisSpacing: 15,
-                  childAspectRatio: 0.6,
-                ),
-                itemCount: _filteredProducts.length,
-                itemBuilder: (context, index) {
-                  final product = _filteredProducts[index];
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.asset(
-                              product["image"],
-                              fit: BoxFit.cover,
-                              height: 210,
-                              width: double.infinity,
-                            ),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: CircleAvatar(
-                              radius: 14,
-                              backgroundColor: Colors.white,
-                              child: Icon(Icons.favorite_border,
-                                  color: Colors.black, size: 18),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        product["name"],
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        product["priceLabel"],
-                        style: const TextStyle(
-                            color: Colors.black, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.star, color: Colors.amber, size: 16),
-                          const SizedBox(width: 3),
-                          Text(
-                            "${product["rating"]}",
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            "(${product["reviews"]})",
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
+        );
+      },
     );
   }
 }
