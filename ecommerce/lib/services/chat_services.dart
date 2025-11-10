@@ -88,13 +88,7 @@ class ChatService {
 
   bool _isSuccess(int status) => status >= 200 && status < 300;
 
-  /// Robust extractor: walks a decoded JSON string safely and returns the first text it finds.
-  /// Handles many shapes including:
-  /// - candidates -> content -> parts -> text
-  /// - candidates -> content -> text (map)
-  /// - candidates -> content (string)
-  /// - outputs -> content -> [{ text }]
-  /// - top-level text/response fields
+  
   String? _extractText(String body) {
     try {
       final dynamic jsonObj = jsonDecode(body);

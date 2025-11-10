@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'profile_page.dart';
+import 'home_screen.dart';
+import 'all_product_screen.dart'; 
 
 class DiscoverPage extends StatefulWidget {
   const DiscoverPage({super.key});
@@ -57,16 +59,28 @@ class _DiscoverPageState extends State<DiscoverPage> {
       ),
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
-        child:
-            showSearch ? _buildSearchView(isTablet) : _buildDiscoverView(isTablet),
+        child: showSearch
+            ? _buildSearchView(isTablet)
+            : _buildDiscoverView(isTablet),
       ),
 
-      // 🔽 Bottom Navigation Bar with Profile navigation
+      // ✅ Updated Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() => _selectedIndex = index);
-          if (index == 2) {
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          } else if (index == 1) {
+            // ✅ Navigate to All Products page
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AllProductsScreen()),
+            );
+          } else if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ProfilePage()),
@@ -74,8 +88,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_outlined), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: ''),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.grid_view_outlined), label: 'All Products'),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
         ],
       ),
@@ -126,8 +141,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             childAspectRatio: isTablet ? 2.5 : 1.9,
-            children:
-                categories.map((category) => _buildCategoryCard(category)).toList(),
+            children: categories
+                .map((category) => _buildCategoryCard(category))
+                .toList(),
           ),
         ],
       ),
@@ -172,7 +188,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: const [
                 Text('Popular this week',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 Text('Show all', style: TextStyle(color: Colors.grey)),
               ],
             ),
@@ -201,8 +218,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  // 🛍️ Popular item card
-  static Widget _buildPopularItem(String name, String price, String imageUrl) {
+  static Widget _buildPopularItem(
+      String name, String price, String imageUrl) {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -213,8 +230,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
             child: ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(16)),
-              child:
-                  Image.network(imageUrl, fit: BoxFit.cover, width: double.infinity),
+              child: Image.network(imageUrl,
+                  fit: BoxFit.cover, width: double.infinity),
             ),
           ),
           Padding(
@@ -223,7 +240,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(name, style: const TextStyle(fontSize: 13)),
-                Text(price, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(price,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           )
@@ -232,14 +250,14 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  // 🧭 Category Card with image
   Widget _buildCategoryCard(Map<String, String> category) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-              builder: (context) => CategoryDetailPage(title: category['title']!)),
+              builder: (context) =>
+                  CategoryDetailPage(title: category['title']!)),
         );
       },
       child: Container(
@@ -266,7 +284,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
             child: Text(
               category['title']!.toUpperCase(),
               style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
           ),
         ),
@@ -275,7 +295,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 }
 
-// 👇 Keep your CategoryDetailPage (same as before)
+// 👇 Keep CategoryDetailPage same as before
 class CategoryDetailPage extends StatelessWidget {
   final String title;
   const CategoryDetailPage({super.key, required this.title});
@@ -290,40 +310,16 @@ class CategoryDetailPage extends StatelessWidget {
         {
           'name': 'Jacket',
           'count': 128,
-          'image': 'https://images.unsplash.com/photo-1521335629791-ce4aec67dd47',
+          'image':
+              'https://images.unsplash.com/photo-1521335629791-ce4aec67dd47',
           'desc': 'Stay warm and stylish with our trendy jackets.'
         },
         {
           'name': 'Skirts',
           'count': 40,
-          'image': 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
+          'image':
+              'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
           'desc': 'Elegant skirts perfect for all occasions.'
-        },
-        {
-          'name': 'Dresses',
-          'count': 36,
-          'image': 'https://images.unsplash.com/photo-1521335629791-ce4aec67dd47',
-          'desc': 'Chic dresses to elevate your wardrobe.'
-        },
-        {
-          'name': 'Sweaters',
-          'count': 24,
-          'image': 'https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb',
-          'desc': 'Soft and cozy sweaters for comfort and warmth.'
-        },
-      ],
-      'Shoes': [
-        {
-          'name': 'Sneakers',
-          'count': 58,
-          'image': 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
-          'desc': 'Comfortable and stylish sneakers for daily use.'
-        },
-        {
-          'name': 'Heels',
-          'count': 42,
-          'image': 'https://images.unsplash.com/photo-1519741497674-611481863552',
-          'desc': 'Elegant heels to complete your outfit.'
         },
       ],
     };
@@ -339,14 +335,16 @@ class CategoryDetailPage extends StatelessWidget {
         ),
       ),
       body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: isTablet ? screenWidth * 0.1 : 10),
+        padding:
+            EdgeInsets.symmetric(horizontal: isTablet ? screenWidth * 0.1 : 10),
         child: ListView.builder(
           itemCount: items.length,
           itemBuilder: (context, index) {
             final item = items[index];
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape:
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 1.5,
               child: ListTile(
                 contentPadding: const EdgeInsets.all(12),
@@ -365,11 +363,11 @@ class CategoryDetailPage extends StatelessWidget {
                 subtitle: Text(item['desc'],
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    style:
+                        const TextStyle(color: Colors.grey, fontSize: 13)),
                 trailing: Text('${item['count']} items',
                     style: const TextStyle(
                         fontWeight: FontWeight.w500, color: Colors.black54)),
-                onTap: () {},
               ),
             );
           },

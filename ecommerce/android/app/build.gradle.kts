@@ -20,10 +20,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // TODO: Specify your own unique Application ID.
         applicationId = "com.example.ecommerce"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
+
+        // Flutter-managed values
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -31,10 +31,25 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
+            // Using debug signing for now — replace with your release keystore when ready.
             signingConfig = signingConfigs.getByName("debug")
+
+            // Enable code shrinking and resource shrinking (R8)
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            // Use default Android ProGuard rules + custom rules file (create proguard-rules.pro)
+            proguardFiles(
+                getDefaultProguardFile("proguard-android.txt"),
+                file("proguard-rules.pro")
+            )
+        }
+
+        // Keep debug fast/no shrink
+        getByName("debug") {
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
