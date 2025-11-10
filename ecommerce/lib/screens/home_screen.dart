@@ -387,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 
-  /// Responsive product thumbnail: uses safe width fallback
+  
   Widget _productThumb(Map<String, String> item) {
     final heroTag = 'hero-${item['title']}';
     return LayoutBuilder(
