@@ -1,5 +1,9 @@
 // lib/screens/sign_up_screen.dart
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import '../screens/otp_verification_screen.dart';
+import '../utils/api.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -27,15 +31,42 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  void _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isSubmitting = true);
 
-    // TODO: integrate with your auth backend
-    Future.delayed(const Duration(seconds: 1), () {
+    final name = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final password = _passwordCtrl.text;
+
+    try {
+      // Use api helper or raw http
+      final result = await post('/auth/email-send-otp', {'email': email});
+      final status = result['status'] as int;
+      final body = result['body'] as Map<String, dynamic>?;
+
+      if (status == 200 && body != null && (body['success'] == true || body['message'] != null)) {
+        // Navigate to OTP screen with signup data
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationScreen(
+              email: email,
+              name: name,
+              password: password,
+              fromSignup: true,
+            ),
+          ),
+        );
+      } else {
+        final msg = body != null ? (body['message'] ?? 'Failed to send OTP') : 'Failed to send OTP';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Network error: ${e.toString()}')));
+    } finally {
       setState(() => _isSubmitting = false);
-      Navigator.pushReplacementNamed(context, '/login');
-    });
+    }
   }
 
   Widget _socialButton(IconData icon, VoidCallback onTap) {
@@ -115,10 +146,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hintText: 'Password',
                   border: const UnderlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                        _obscurePassword ? Icons.visibility : Icons.visibility_off),
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                    onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
                 validator: (v) {
@@ -140,8 +169,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   hintText: 'Confirm password',
                   border: const UnderlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon:
-                        Icon(_obscureConfirm ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(_obscureConfirm ? Icons.visibility : Icons.visibility_off),
                     onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
                   ),
                 ),
@@ -169,11 +197,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                   ),
                   child: _isSubmitting
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                      ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('SIGN UP', style: TextStyle(fontSize: 16)),
                 ),
               ),
@@ -183,17 +207,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _socialButton(Icons.apple, () {
-                    // TODO: Apple sign in
-                  }),
+                  _socialButton(Icons.apple, () {}),
                   const SizedBox(width: 16),
-                  _socialButton(Icons.g_mobiledata, () {
-                    // TODO: Google sign in
-                  }),
+                  _socialButton(Icons.g_mobiledata, () {}),
                   const SizedBox(width: 16),
-                  _socialButton(Icons.facebook, () {
-                    // TODO: Facebook sign in
-                  }),
+                  _socialButton(Icons.facebook, () {}),
                 ],
               ),
               const SizedBox(height: 18),
@@ -205,9 +223,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   InkWell(
                     onTap: () => Navigator.pushReplacementNamed(context, '/login'),
                     child: Text('Log in',
-                        style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.w600)),
+                        style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600)),
                   )
                 ],
               ),
@@ -218,10 +234,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
 
     if (width != null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0),
-        child: SizedBox(width: width, child: content),
-      );
+      return Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: SizedBox(width: width, child: content));
     }
     return content;
   }
@@ -232,16 +245,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       body: SafeArea(
         child: LayoutBuilder(builder: (context, constraints) {
           final w = constraints.maxWidth;
-
-          // Mobile / narrow screens
           if (w < 700) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 36),
-              child: _buildForm(),
-            );
+            return SingleChildScrollView(padding: const EdgeInsets.fromLTRB(28, 24, 28, 36), child: _buildForm());
           }
-
-          // Wide screens: center card with left branding + right form
           final cardMaxWidth = w > 1100 ? 1000.0 : w * 0.88;
           return Center(
             child: Container(
@@ -250,76 +256,34 @@ class _SignUpScreenState extends State<SignUpScreen> {
               margin: const EdgeInsets.symmetric(vertical: 40),
               child: Card(
                 elevation: 6,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   children: [
-                    // Left: branding/illustration
                     Expanded(
                       flex: 5,
                       child: Container(
                         padding: const EdgeInsets.all(32),
                         decoration: BoxDecoration(
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(12),
-                            bottomLeft: Radius.circular(12),
-                          ),
+                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
                           gradient: LinearGradient(
-                            colors: [
-                              Theme.of(context).colorScheme.primary.withOpacity(0.06),
-                              Colors.white,
-                            ],
+                            colors: [Theme.of(context).colorScheme.primary.withOpacity(0.06), Colors.white],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              height: 40,
-                              child: Text(
-                                'Your App',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(context).primaryColor,
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Text(
-                              'Join us\nand start shopping.',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey.shade800,
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Text(
-                              'Create an account to save your favourites, track orders and enjoy exclusive offers.',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                height: 1.35,
-                              ),
-                            ),
-                            const Spacer(),
-                          ],
-                        ),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          SizedBox(height: 40, child: Text('Your App', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Theme.of(context).primaryColor))),
+                          const Spacer(),
+                          Text('Join us\nand start shopping.', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey.shade800)),
+                          const SizedBox(height: 14),
+                          Text('Create an account to save your favourites, track orders and enjoy exclusive offers.', style: TextStyle(color: Colors.grey.shade600, height: 1.35)),
+                          const Spacer(),
+                        ]),
                       ),
                     ),
-
-                    // Right: form
                     Expanded(
                       flex: 6,
-                      child: Padding(
-                        padding: const EdgeInsets.all(28.0),
-                        child: SingleChildScrollView(
-                          child: _buildForm(width: 460),
-                        ),
-                      ),
+                      child: Padding(padding: const EdgeInsets.all(28.0), child: SingleChildScrollView(child: _buildForm(width: 460))),
                     ),
                   ],
                 ),
