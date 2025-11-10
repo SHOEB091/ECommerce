@@ -1,20 +1,29 @@
-const express = require("express");
+// server.js (fixed)
+require('dotenv').config(); // MUST be first
+
+const express = require('express');
 const app = express();
+
+const cors = require('cors');
+const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+
 const port = process.env.PORT || 4000;
-const bodyParser = require("body-parser");
-const cors = require("cors");
-const connectDB = require("./config/db");
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json()); // built-in body parser
 
-
-// Connect to MongoDB
+// Connect to MongoDB (MONGO_URL will now be available)
 connectDB();
 
+// Routes
+app.use('/api/v1/auth', authRoutes);
 
-//server conection
+// Fallback for unknown routes (optional)
+app.use((req, res) => res.status(404).json({ message: 'Not found' }));
+
+// Start server
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
