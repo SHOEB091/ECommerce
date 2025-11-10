@@ -10,6 +10,17 @@ import 'package:ecommerce/screens/signup_screen.dart';
 import 'package:ecommerce/screens/login_screen.dart';
 import 'package:ecommerce/screens/home_screen.dart';
 import 'package:ecommerce/screens/discover_page.dart';
+<<<<<<< HEAD
+import 'package:ecommerce/screens/settings_page.dart';
+import 'package:flutter/material.dart';
+import 'screens/mens_product_list_screen.dart';
+import 'screens/womens_product_list_screen.dart';
+import 'screens/accessories_product_list_screen.dart';
+import 'screens/more_product_list_screen.dart';
+
+
+void main() {
+=======
 import 'package:ecommerce/screens/mens_product_list_screen.dart';
 import 'package:ecommerce/screens/womens_product_list_screen.dart';
 import 'package:ecommerce/screens/accessories_product_list_screen.dart';
@@ -54,6 +65,7 @@ Future<void> main() async {
   debugPrint('GEMINI_MODEL: $geminiModel');
   // ---------------------------------------
 
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
   runApp(const MyApp());
 }
 
@@ -75,6 +87,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const WelcomeScreen(),
         '/intro': (context) => const IntroScreen(),
+
         '/signup': (context) => const SignUpScreen(),
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
@@ -83,9 +96,18 @@ class MyApp extends StatelessWidget {
         '/womens': (context) => const WomenProductListScreen(),
         '/accessories': (context) => AccessoriesProductListScreen(),
         '/more': (context) => const MoreProductListScreen(),
+<<<<<<< HEAD
+<<<<<<< HEAD
+        '/settings': (context) => const SettingsPage(),
+=======
+
+        // Chat & Notifications
+=======
+>>>>>>> a3d4611ad9fa4704d817374396504faa976e623d
         '/chat': (context) => const ChatScreen(),
         '/notifications': (context) => const NotificationsScreen(),
         '/admin': (context) => AdminPanel(),
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
       },
     );
   }

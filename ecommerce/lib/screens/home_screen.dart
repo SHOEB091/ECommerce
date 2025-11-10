@@ -1,4 +1,10 @@
+<<<<<<< HEAD
+import 'package:ecommerce/screens/settings_page.dart';
+=======
 // lib/screens/home_screen.dart
+<<<<<<< HEAD
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
+=======
 import 'dart:async';
 import 'dart:math';
 import 'package:ecommerce/screens/all_product_screen.dart';
@@ -6,6 +12,7 @@ import 'package:ecommerce/screens/more_product_list_screen.dart';
 import 'package:ecommerce/screens/notofications_screen.dart';
 import 'package:ecommerce/screens/profile_page.dart';
 import 'package:ecommerce/screens/settingPage.dart';
+>>>>>>> a3d4611ad9fa4704d817374396504faa976e623d
 import 'package:flutter/material.dart';
 import 'package:ecommerce/screens/orders_page.dart';
 import 'package:ecommerce/screens/help_support_screen.dart';
@@ -17,6 +24,8 @@ import 'mens_product_list_screen.dart';
 import 'womens_product_list_screen.dart';
 import 'accessories_product_list_screen.dart';
 import 'category_detail_page.dart';
+
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -84,6 +93,51 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+ Widget _categoryTile(int index) {
+  final item = _categories[index];
+  final selected = _selectedCategory == index;
+
+  return GestureDetector(
+    onTap: () {
+      setState(() => _selectedCategory = index);
+
+      // ✅ Handle navigation based on label
+      switch (item['label']) {
+        case 'All':
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const DiscoverPage()),
+          );
+          break;
+
+        default:
+          // For any other category, you can define logic here if needed
+          debugPrint('Selected category: ${item['label']}');
+      }
+    },
+    child: Container(
+      width: 72,
+      margin: const EdgeInsets.only(right: 12),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFF3EDE9) : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      )
+                    ]
+                  : null,
+=======
+=======
   @override
   void initState() {
     super.initState();
@@ -108,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+>>>>>>> a3d4611ad9fa4704d817374396504faa976e623d
   // ---------- NAV HELPERS ----------
   void _openProduct(Map<String, String> product) {
     Navigator.push(
@@ -189,6 +244,23 @@ class _HomeScreenState extends State<HomeScreen> {
                       ]
                     : null,
               ),
+<<<<<<< HEAD
+              child: Icon(item['icon'] as IconData, color: Colors.black54, size: 22),
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
+            ),
+            child: Icon(
+              item['icon'] as IconData,
+              color: Colors.black54,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            item['label'] as String,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
+=======
               child: Icon(
                 item['icon'] as IconData,
                 color: Colors.black54,
@@ -202,9 +274,12 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+>>>>>>> a3d4611ad9fa4704d817374396504faa976e623d
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   /// Defensive helper: resolve visual width in the presence of infinite constraints.
   double _resolveVisualWidth(
@@ -632,9 +707,79 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
+<<<<<<< HEAD
+
+            const SizedBox(height: 8),
+
+            // menu items
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () {
+                    // navigate or handle
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile tapped')));
+                  }),
+                  ListTile(leading: const Icon(Icons.favorite_border), title: const Text('Wishlist'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Wishlist tapped')));
+                  }),
+                  ListTile(leading: const Icon(Icons.shopping_bag_outlined), title: const Text('Orders'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Orders tapped')));
+                  }),
+                  const Divider(),
+                 ListTile(
+                     leading: const Icon(Icons.settings_outlined),
+                       title: const Text('Settings'),
+                         onTap: () {
+                           Navigator.pop(context); // close drawer first
+                              Navigator.push(
+                                 context,
+                                    MaterialPageRoute(builder: (context) => const SettingsPage()),
+                                        );
+                              },
+                          ),
+
+                  ListTile(leading: const Icon(Icons.help_outline), title: const Text('Help & Support'), onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Help tapped')));
+                  }),
+                ],
+              ),
+            ),
+
+            // bottom actions
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.login_outlined),
+                      label: const Text('Sign In'),
+                      onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign In tapped'))); },
+                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  IconButton(
+                    onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Log out tapped'))); },
+                    icon: const Icon(Icons.logout),
+                    tooltip: 'Log out',
+                  )
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+=======
           ),
           const SizedBox(height: 8),
         ],
+>>>>>>> 2b7753b0dca027aa15ac7ca508e40b69ad39c346
       ),
     );
   }
