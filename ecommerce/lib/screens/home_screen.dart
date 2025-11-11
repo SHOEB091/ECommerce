@@ -605,8 +605,10 @@ class ProductDetails extends StatelessWidget {
           ]),
         ]),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _smallThumb(String? asset) {
     if (asset == null) return const SizedBox();
