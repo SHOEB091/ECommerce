@@ -1,13 +1,12 @@
 // lib/screens/login_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'admin/admin_panel.dart';
-import 'admin/admin_panel.dart'; // ensure this file exists
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../utils/api.dart';
-import 'admin/admin_panel.dart';
+import 'package:intl/intl.dart';
 
+import 'package:ecommerce/screens/admin/admin_panel.dart';
+import '../utils/api.dart';
+import '../services/notifications_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -46,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return false;
       }
     } catch (e) {
+      debugPrint('Auth error: $e');
       return false;
     }
   }
@@ -61,14 +61,24 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = false);
 
     if (success) {
-      final email = _emailCtrl.text.trim();
+      // Add a notification for successful login
+      final now = DateTime.now();
+      NotificationsService.instance.add(
+        NotificationItem(
+          id: now.millisecondsSinceEpoch.toString(),
+          title: 'Logged in',
+          body: 'You signed in at ${DateFormat.jm().format(now)}',
+          time: now,
+          isRead: false,
+          icon: Icons.login,
+        ),
+      );
 
-      // ✅ Admin redirect logic
+      // Admin redirect logic
       if (email.toLowerCase() == adminEmail.toLowerCase()) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminPanel()));
         return;
       }
-
       // Normal user → Home
       Navigator.pushReplacementNamed(context, '/home');
     } else {
@@ -106,113 +116,6 @@ class _LoginScreenState extends State<LoginScreen> {
           key: _formKey,
           child: Column(
             children: [
-              const SizedBox(height: 6),
-              const Text(
-                'Log into\nyour account',
-                style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 24),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    // Email
-                    TextFormField(
-                      controller: _emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        hintText: 'Email address',
-                        border: UnderlineInputBorder(),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) return 'Please enter email';
-                        final re = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-                        if (!re.hasMatch(v.trim())) return 'Enter a valid email';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Password
-                    TextFormField(
-                      controller: _pwdCtrl,
-                      obscureText: _obscure,
-                      decoration: InputDecoration(
-                        hintText: 'Password',
-                        border: const UnderlineInputBorder(),
-                        suffixIcon: IconButton(
-                          onPressed: () => setState(() => _obscure = !_obscure),
-                          icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                        ),
-                      ),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Please enter password' : null,
-                    ),
-                    const SizedBox(height: 8),
-
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Forgot password tapped')),
-                          );
-                        },
-                        child: const Text('Forgot Password?'),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF372726),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
-                        ),
-                        child: _loading
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('LOG IN', style: TextStyle(fontSize: 16)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    const Text('or log in with', style: TextStyle(color: Colors.grey)),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _socialIcon(Icons.apple, () {}),
-                        const SizedBox(width: 14),
-                        _socialIcon(Icons.g_mobiledata, () {}),
-                        const SizedBox(width: 14),
-                        _socialIcon(Icons.facebook, () {}),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("Don't have an account?"),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () => Navigator.pushReplacementNamed(context, '/signup'),
-                          child: Text(
-                            'Sign Up',
-                            style: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
               // Email
               TextFormField(
                 controller: _emailCtrl,
@@ -221,7 +124,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   hintText: 'Email address',
                   border: UnderlineInputBorder(),
                 ),
-                decoration: const InputDecoration(hintText: 'Email address', border: UnderlineInputBorder()),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Please enter email';
                   final re = RegExp(r'^[^@]+@[^@]+\.[^@]+');
@@ -230,47 +132,86 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
               ),
               const SizedBox(height: 12),
+
+              // Password
               TextFormField(
                 controller: _pwdCtrl,
                 obscureText: _obscure,
                 decoration: InputDecoration(
                   hintText: 'Password',
                   border: const UnderlineInputBorder(),
-                  suffixIcon: IconButton(onPressed: () => setState(() => _obscure = !_obscure), icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off)),
+                  suffixIcon: IconButton(
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                    icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                  ),
                 ),
                 validator: (v) => (v == null || v.isEmpty) ? 'Please enter password' : null,
               ),
               const SizedBox(height: 8),
+
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Forgot password tapped')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Forgot password tapped')),
+                    );
                   },
                   child: const Text('Forgot Password?'),
                 ),
               ),
               const SizedBox(height: 8),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _loading ? null : submit,
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF372726), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26))),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF372726),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
+                  ),
                   child: _loading
-                      ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
                       : const Text('LOG IN', style: TextStyle(fontSize: 16)),
                 ),
               ),
               const SizedBox(height: 12),
+
               const Text('or log in with', style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 12),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [socialIcon(Icons.apple, () {}), const SizedBox(width: 14), socialIcon(Icons.g_mobiledata, () {}), const SizedBox(width: 14), socialIcon(Icons.facebook, () {})]),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  socialIcon(Icons.apple, () {}),
+                  const SizedBox(width: 14),
+                  socialIcon(Icons.g_mobiledata, () {}),
+                  const SizedBox(width: 14),
+                  socialIcon(Icons.facebook, () {}),
+                ],
+              ),
               const SizedBox(height: 16),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Text("Don't have an account?"),
-                const SizedBox(width: 8),
-                InkWell(onTap: () => Navigator.pushReplacementNamed(context, '/signup'), child: Text('Sign Up', style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.w600))),
-              ]),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Don't have an account?"),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: () => Navigator.pushReplacementNamed(context, '/signup'),
+                    child: Text(
+                      'Sign Up',
+                      style: TextStyle(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -308,7 +249,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
                         borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
-                        gradient: LinearGradient(colors: [Theme.of(context).colorScheme.primary.withOpacity(0.08), Colors.white], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        gradient: LinearGradient(
+                          colors: [Theme.of(context).colorScheme.primary.withOpacity(0.08), Colors.white],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         SizedBox(height: 40, child: Text('Your App', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Theme.of(context).primaryColor))),
