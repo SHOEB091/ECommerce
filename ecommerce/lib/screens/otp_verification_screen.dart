@@ -3,7 +3,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
+import 'package:intl/intl.dart';
+
 import '../utils/api.dart';
+import '../services/notifications_service.dart';
 
 class OtpVerificationScreen extends StatefulWidget {
   final String email;
@@ -71,6 +74,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (status == 200 && body != null && (body['success'] == true || body['message'] != null)) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP resent')));
         _startTimer();
+
+        // Optionally add a notification that OTP was resent
+        final now = DateTime.now();
+        NotificationsService.instance.add(
+          NotificationItem(
+            id: now.millisecondsSinceEpoch.toString(),
+            title: 'OTP resent',
+            body: 'A new OTP was sent to ${widget.email} at ${DateFormat.jm().format(now)}',
+            time: now,
+            isRead: false,
+            icon: Icons.email,
+          ),
+        );
       } else {
         final msg = body != null ? (body['message'] ?? 'Failed to resend OTP') : 'Failed to resend OTP';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -100,6 +116,34 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (status == 200 && body != null && body['success'] == true && body['token'] != null) {
         final token = body['token'] as String;
         await saveToken(token);
+
+        // If this flow was from signup, add a welcome notification
+        final now = DateTime.now();
+        if (widget.fromSignup) {
+          NotificationsService.instance.add(
+            NotificationItem(
+              id: now.millisecondsSinceEpoch.toString(),
+              title: 'Welcome to GemStore',
+              body: 'Account created successfully. Happy shopping!',
+              time: now,
+              isRead: false,
+              icon: Icons.thumb_up_alt_outlined,
+            ),
+          );
+        } else {
+          // If not from signup, still add a login notification (optional)
+          NotificationsService.instance.add(
+            NotificationItem(
+              id: now.millisecondsSinceEpoch.toString(),
+              title: 'Logged in',
+              body: 'You signed in at ${DateFormat.jm().format(now)}',
+              time: now,
+              isRead: false,
+              icon: Icons.login,
+            ),
+          );
+        }
+
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         final msg = body != null ? (body['message'] ?? 'OTP verification failed') : 'OTP verification failed';
