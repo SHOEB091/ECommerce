@@ -23,7 +23,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
 
-  final String adminEmail = "admin123@gmail.com";
   final _storage = const FlutterSecureStorage();
 
   @override
@@ -33,16 +32,17 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<bool> _authenticate(String email, String password) async {
+  Future<Map<String, dynamic>?> _authenticate(String email, String password) async {
     try {
       final result = await post('/auth/login', {'email': email, 'password': password});
       final status = result['status'] as int;
       final body = result['body'] as Map<String, dynamic>?;
+
       if (status == 200 && body != null && body['success'] == true && body['token'] != null) {
-        await saveToken(body['token'] as String);
-        return true;
+        await _storage.write(key: 'token', value: body['token'] as String);
+        return body; // return the entire response including 'role'
       } else {
-        return false;
+        return null;
       }
     } catch (e) {
       debugPrint('Auth error: $e');
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailCtrl.text.trim();
     final password = _pwdCtrl.text.trim();
 
-    final success = await _authenticate(email, password);
+    final result = await _authenticate(email, password);
     setState(() => _loading = false);
 
     if (success) {
@@ -82,7 +82,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // Normal user → Home
       Navigator.pushReplacementNamed(context, '/home');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Login failed — check credentials')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login failed — check credentials')),
+      );
     }
   }
 
@@ -219,7 +221,10 @@ class _LoginScreenState extends State<LoginScreen> {
     );
 
     if (width != null) {
-      return Padding(padding: const EdgeInsets.symmetric(horizontal: 8.0), child: SizedBox(width: width, child: content));
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: SizedBox(width: width, child: content),
+      );
     }
     return content;
   }
@@ -231,7 +236,10 @@ class _LoginScreenState extends State<LoginScreen> {
         child: LayoutBuilder(builder: (context, constraints) {
           final w = constraints.maxWidth;
           if (w < 700) {
-            return SingleChildScrollView(padding: const EdgeInsets.fromLTRB(24, 28, 24, 24), child: _buildForm(context));
+            return SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+              child: _buildForm(context),
+            );
           }
           final cardMaxWidth = w > 1100 ? 1000.0 : w * 0.9;
           return Center(
@@ -255,17 +263,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           end: Alignment.bottomRight,
                         ),
                       ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        SizedBox(height: 40, child: Text('Your App', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Theme.of(context).primaryColor))),
-                        const Spacer(),
-                        Text("Welcome back!\nSign in to continue.", style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey.shade800)),
-                        const SizedBox(height: 18),
-                        Text("Manage your orders, wishlist and profile from a single place.", style: TextStyle(color: Colors.grey.shade600, height: 1.35)),
-                        const Spacer(),
-                      ]),
                     ),
                   ),
-                  Expanded(flex: 6, child: Padding(padding: const EdgeInsets.all(28.0), child: SingleChildScrollView(child: _buildForm(context, width: 420)))),
                 ]),
               ),
             ),
