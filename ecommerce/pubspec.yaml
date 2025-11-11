@@ -15,7 +15,7 @@ dependencies:
   # Networking
   http: ^0.13.6
 
-  # Environment variables (dev only)
+  # Environment variables  
   flutter_dotenv: ^6.0.0
 
   # Optional secure storage
