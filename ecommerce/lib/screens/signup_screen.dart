@@ -1,9 +1,12 @@
 // lib/screens/sign_up_screen.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
+
 import '../screens/otp_verification_screen.dart';
 import '../utils/api.dart';
+import '../services/notifications_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -46,6 +49,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final body = result['body'] as Map<String, dynamic>?;
 
       if (status == 200 && body != null && (body['success'] == true || body['message'] != null)) {
+        // --- Add notification: OTP was sent ---
+        final now = DateTime.now();
+        NotificationsService.instance.add(
+          NotificationItem(
+            id: now.millisecondsSinceEpoch.toString(),
+            title: 'OTP sent',
+            body: 'An OTP was sent to $email at ${DateFormat.jm().format(now)}',
+            time: now,
+            isRead: false,
+            icon: Icons.email,
+          ),
+        );
+
         // Navigate to OTP screen with signup data
         Navigator.pushReplacement(
           context,

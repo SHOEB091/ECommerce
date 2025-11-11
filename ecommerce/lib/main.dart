@@ -32,7 +32,7 @@ Future<void> main() async {
     await NotificationsService.instance.init();
     debugPrint('✅ NotificationsService initialized');
   } catch (e) {
-    debugPrint('⚠ NotificationsService init failed: $e');
+    debugPrint('⚠️ NotificationsService init failed: $e');
   }
 
   // Load .env: different path on web vs mobile if you keep .env under assets for web builds
@@ -41,7 +41,7 @@ Future<void> main() async {
     await dotenv.load(fileName: envPath);
     debugPrint('✅ dotenv loaded from: $envPath');
   } catch (e) {
-    debugPrint('⚠ dotenv failed to load from $envPath: $e');
+    debugPrint('⚠️ dotenv failed to load from $envPath: $e');
     // fallback attempts
     try {
       await dotenv.load(fileName: '.env');
@@ -51,7 +51,7 @@ Future<void> main() async {
         await dotenv.load(fileName: 'assets/.env');
         debugPrint('✅ dotenv fallback loaded from: assets/.env');
       } catch (_) {
-        debugPrint('⚠ dotenv fallback attempts failed.');
+        debugPrint('⚠️ dotenv fallback attempts failed.');
       }
     }
   }

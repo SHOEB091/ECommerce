@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
+
 import 'package:ecommerce/screens/admin/admin_panel.dart';
-import 'package:ecommerce/screens/home_screen.dart';
 import '../utils/api.dart';
 import '../services/notifications_service.dart';
 
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       debugPrint('Auth error: $e');
-      return null;
+      return false;
     }
   }
 
@@ -60,12 +60,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await _authenticate(email, password);
     setState(() => _loading = false);
 
-    if (result != null) {
+    if (success) {
+      // Add a notification for successful login
       final now = DateTime.now();
       NotificationsService.instance.add(
         NotificationItem(
           id: now.millisecondsSinceEpoch.toString(),
-          title: 'Login Successful',
+          title: 'Logged in',
           body: 'You signed in at ${DateFormat.jm().format(now)}',
           time: now,
           isRead: false,
@@ -73,20 +74,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-      // ✅ Check user role from backend
-      final role = result['role']?.toString().toLowerCase();
-
-      if (role == 'admin') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const AdminPanel()),
-        );
-      } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+      // Admin redirect logic
+      if (email.toLowerCase() == adminEmail.toLowerCase()) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminPanel()));
+        return;
       }
+      // Normal user → Home
+      Navigator.pushReplacementNamed(context, '/home');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Login failed — check credentials')),
@@ -124,6 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
           key: _formKey,
           child: Column(
             children: [
+              // Email
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
@@ -139,6 +134,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 },
               ),
               const SizedBox(height: 12),
+
+              // Password
               TextFormField(
                 controller: _pwdCtrl,
                 obscureText: _obscure,
@@ -153,15 +150,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 validator: (v) => (v == null || v.isEmpty) ? 'Please enter password' : null,
               ),
               const SizedBox(height: 8),
+
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('Forgot password tapped'))),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Forgot password tapped')),
+                    );
+                  },
                   child: const Text('Forgot Password?'),
                 ),
               ),
               const SizedBox(height: 8),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -181,6 +183,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
+
               const Text('or log in with', style: TextStyle(color: Colors.grey)),
               const SizedBox(height: 12),
               Row(
@@ -259,40 +262,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(
-                            height: 40,
-                            child: Text('Your App',
-                                style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: Theme.of(context).primaryColor)),
-                          ),
-                          const Spacer(),
-                          Text("Welcome back!\nSign in to continue.",
-                              style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey.shade800)),
-                          const SizedBox(height: 18),
-                          Text(
-                            "Manage your orders, wishlist and profile from a single place.",
-                            style: TextStyle(color: Colors.grey.shade600, height: 1.35),
-                          ),
-                          const Spacer(),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 6,
-                    child: Padding(
-                      padding: const EdgeInsets.all(28.0),
-                      child: SingleChildScrollView(
-                        child: _buildForm(context, width: 420),
                       ),
                     ),
                   ),

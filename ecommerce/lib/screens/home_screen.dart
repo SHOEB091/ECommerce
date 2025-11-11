@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _bannerController = PageController(initialPage: _banners.length * 1000);
     _currentBanner = _bannerController.initialPage % _banners.length;
 
-    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (Timer) {
+    _bannerTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       if (!_bannerController.hasClients) return;
       _bannerController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     });
@@ -369,30 +369,16 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SingleChildScrollView(
           padding: EdgeInsets.only(bottom: bottomPadding),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-           if (!isDesktop)
-              SizedBox(
-               height: 92,
-                child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 8),
-                itemCount: _categories.length,
-             scrollDirection: Axis.horizontal,
-               itemBuilder: (context, i) => _categoryTile(i),
-                                                                     ),
-                                                                       ),
-
+            if (!isDesktop) SizedBox(height: 92, child: ListView.builder(padding: const EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 8), itemCount: _categories.length, scrollDirection: Axis.horizontal, itemBuilder: (_, i) => _categoryTile(i))),
             if (isDesktop)
-              Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 12),
-               child: Wrap(spacing: 12, runSpacing: 8, 
-               children: List.generate(_categories.length, (i) => _categoryTile(i, size: 96)))),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad, vertical: 12), child: Wrap(spacing: 12, runSpacing: 8, children: List.generate(_categories.length, (i) => _categoryTile(i, size: 96)))),
             const SizedBox(height: 6),
             _buildPromoCarousel(isDesktop),
             const SizedBox(height: 18),
             _sectionHeader('Feature Products', onSeeAll: () {}),
             const SizedBox(height: 12),
             if (!isDesktop)
-              SingleChildScrollView(scrollDirection: Axis.horizontal,
-               padding: const EdgeInsets.symmetric(horizontal: horizontalPad), 
-               child: Row(children: _feature.map((f) => SizedBox(width: 160, child: _featureCard(f))).toList()))
+              SingleChildScrollView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: horizontalPad), child: Row(children: _feature.map((f) => SizedBox(width: 160, child: _featureCard(f))).toList()))
             else
               LayoutBuilder(builder: (context, inner) {
                 final contentWidth = inner.maxWidth - horizontalPad * 2;
@@ -540,97 +526,84 @@ class ProductDetails extends StatelessWidget {
   Widget _imageFallback({double? height}) {
     return Container(height: height, color: Colors.grey[100], child: const Center(child: Icon(Icons.image_not_supported, size: 44, color: Colors.grey)));
   }
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Text(product['title'] ?? 'Product Details'),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black87,
-      elevation: 0,
-    ),
-    backgroundColor: Colors.white,
-    body: SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Hero(
-            tag: 'hero-${product['title']}',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                product['img'] ?? '',
-                width: double.infinity,
-                height: 300,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
-                    _imageFallback(height: 300),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            product['title'] ?? '',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            product['price'] ?? '',
-            style: const TextStyle(
-              fontSize: 18,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'Product Description',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'This is a high-quality product made with the finest materials. '
-            'Perfect for your daily wear or special occasions.',
-            style: TextStyle(fontSize: 14, color: Colors.black54),
-          ),
-          const SizedBox(height: 30),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.shopping_bag_outlined),
-                  label: const Text('Add to Bag'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            '${product['title']} added to your bag!'),
-                      ),
-                    );
-                  },
+
+  @override
+  Widget build(BuildContext context) {
+    final title = product['title'] ?? 'Product';
+    final price = product['price'] ?? '';
+    final img = product['img'];
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 900;
+
+    if (isDesktop) {
+      final double leftWidth = min(520, screenWidth * 0.42);
+      final double imgHeight = leftWidth * 0.95;
+
+      return Scaffold(
+        appBar: AppBar(title: Text(title, style: const TextStyle(color: Colors.black87)), backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black87)),
+        body: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                SizedBox(
+                  width: leftWidth,
+                  child: Column(children: [
+                    Container(height: imgHeight, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]), clipBehavior: Clip.hardEdge, child: img != null ? Hero(tag: 'hero-${product['title']}', child: Image.asset(img, fit: BoxFit.contain, width: leftWidth, height: imgHeight, cacheWidth: max(1, (leftWidth * MediaQuery.of(context).devicePixelRatio).round()))) : _imageFallback(height: imgHeight)),
+                    const SizedBox(height: 12),
+                    SizedBox(height: 72, child: ListView(scrollDirection: Axis.horizontal, children: [const SizedBox(width: 6), _smallThumb(img), const SizedBox(width: 8), _smallThumb(img), const SizedBox(width: 8), _smallThumb(img)])),
+                  ]),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: const CircleBorder(),
-                  padding: const EdgeInsets.all(14),
-                  backgroundColor: Colors.grey[100],
-                ),
-                onPressed: () {},
-                child: const Icon(Icons.favorite_border, color: Colors.black87),
-              ),
-            ],
+                const SizedBox(width: 28),
+                Expanded(child: SizedBox(height: MediaQuery.of(context).size.height - kToolbarHeight - 40, child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 10),
+                  Text(price, style: const TextStyle(fontSize: 20, color: Colors.grey)),
+                  const SizedBox(height: 14),
+                  const Text('Description', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  const Text('This is a sample product description. Replace this with real product details: sizes, materials, care instructions, and any other relevant information you want to show to customers.', style: TextStyle(color: Colors.black87, height: 1.45)),
+                  const SizedBox(height: 18),
+                  Row(children: [
+                    Expanded(child: ElevatedButton.icon(onPressed: () { ScaffoldMessenger.of(context).removeCurrentSnackBar(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to cart'))); }, icon: const Icon(Icons.add_shopping_cart), label: const Text('Add to cart'), style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)))),
+                    const SizedBox(width: 12),
+                    OutlinedButton(onPressed: () => Navigator.pop(context), style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)), child: const Text('Close')),
+                  ]),
+                  const SizedBox(height: 12),
+                ])))),
+              ]),
+            ),
           ),
-        ],
+        ),
+      );
+    }
+
+    final screenHeight = MediaQuery.of(context).size.height;
+    final imageHeight = (screenHeight * 0.45).clamp(260.0, 520.0);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(title, style: const TextStyle(color: Colors.black87)), backgroundColor: Colors.white, elevation: 0, iconTheme: const IconThemeData(color: Colors.black87)),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(18),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(height: imageHeight, width: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]), clipBehavior: Clip.hardEdge, child: img != null ? Hero(tag: 'hero-${product['title']}', child: Image.asset(img, fit: BoxFit.cover, cacheWidth: max(1, (MediaQuery.of(context).size.width * MediaQuery.of(context).devicePixelRatio).round()), errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight))) : _imageFallback(height: imageHeight)),
+          const SizedBox(height: 18),
+          Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(price, style: const TextStyle(fontSize: 18, color: Colors.grey)),
+          const SizedBox(height: 14),
+          const Text('Description', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          const Text('This is a sample product description. Replace this with real product details: sizes, materials, care instructions, and any other relevant information you want to show to customers.', style: TextStyle(color: Colors.black87)),
+          const SizedBox(height: 24),
+          Row(children: [
+            Expanded(child: ElevatedButton.icon(onPressed: () { ScaffoldMessenger.of(context).removeCurrentSnackBar(); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to cart'))); }, icon: const Icon(Icons.add_shopping_cart), label: const Text('Add to cart'), style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)))),
+            const SizedBox(width: 12),
+            ElevatedButton(onPressed: () => Navigator.pop(context), style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black87), child: const Padding(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 14), child: Text('Close'))),
+          ]),
+        ]),
       ),
     ),
   );
