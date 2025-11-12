@@ -1,148 +1,75 @@
+// lib/screens/product_detail_screen.dart
 import 'package:flutter/material.dart';
-import 'cart_screen.dart';
-import 'all_product_screen.dart';
+import '../services/cart_service.dart';
+import 'package:ecommerce/screens/admin/product_model.dart';
 
-class ProductDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> product;
-  const ProductDetailScreen({super.key, required this.product});
+/// Main product details screen (used by new code)
+class ProductDetailsScreen extends StatelessWidget {
+  final Product product;
+  const ProductDetailsScreen({super.key, required this.product});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(product["name"]),
+        title: Text(product.name, overflow: TextOverflow.ellipsis),
         actions: [
-          IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
+          IconButton(
+            icon: const Icon(Icons.shopping_cart_outlined),
+            onPressed: () => Navigator.pushNamed(context, '/cart'),
+          ),
         ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // 🔹 Check screen width for responsiveness
-          bool isDesktop = constraints.maxWidth > 900;
-          bool isTablet = constraints.maxWidth > 600 && constraints.maxWidth <= 900;
-
-          double imageWidth = isDesktop
-              ? constraints.maxWidth * 0.4 // 40% of desktop width
-              : isTablet
-                  ? constraints.maxWidth * 0.6
-                  : double.infinity;
-
-          return Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 1000), // limit content width
-              padding: const EdgeInsets.all(16),
-              child: isDesktop
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 🔹 Product Image (Left Side)
-                        Expanded(
-                          flex: 4,
-                          child: Center(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.asset(
-                                product["image"],
-                                width: imageWidth,
-                                height: 400,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(width: 40),
-
-                        // 🔹 Product Details (Right Side)
-                        Expanded(
-                          flex: 5,
-                          child: _buildDetailsSection(context),
-                        ),
-                      ],
-                    )
-                  : _buildMobileView(context, imageWidth),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: product.imageUrl.isNotEmpty
+                  ? Image.network(product.imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) =>
+                      Container(color: Colors.grey[200], child: const Icon(Icons.broken_image, size: 80, color: Colors.grey)))
+                  : Container(color: Colors.grey[200], child: const Center(child: Icon(Icons.image_not_supported, size: 80, color: Colors.grey))),
             ),
-          );
-        },
+          ),
+          const SizedBox(height: 16),
+          Text(product.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Text("₹${product.price.toStringAsFixed(2)}", style: const TextStyle(fontSize: 18, color: Colors.deepOrange, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 16),
+          Text(product.description.isNotEmpty ? product.description : "No description available.", style: const TextStyle(fontSize: 15, color: Colors.black87, height: 1.4)),
+          const SizedBox(height: 24),
+          Row(children: [
+            const Icon(Icons.inventory_2_outlined, color: Colors.grey),
+            const SizedBox(width: 8),
+            Text("In stock: ${product.stock}", style: const TextStyle(color: Colors.grey)),
+          ]),
+          const SizedBox(height: 24),
+          Center(
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+              onPressed: () async {
+                final ok = await CartService.instance.addItem(product.id, qty: 1);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Added "${product.name}" to cart' : 'Failed to add to cart')));
+              },
+              icon: const Icon(Icons.add_shopping_cart_outlined),
+              label: const Text("Add to Cart", style: TextStyle(fontSize: 16)),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ]),
       ),
     );
   }
+}
 
-  // 🔹 Mobile view layout (Column)
-  Widget _buildMobileView(BuildContext context, double imageWidth) {
-    return ListView(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: Image.asset(
-            product["image"],
-            width: imageWidth,
-            height: 300,
-            fit: BoxFit.cover,
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildDetailsSection(context),
-      ],
-    );
-  }
+/// Compatibility wrapper for files that reference `ProductDetailScreen` (singular)
+/// Many of your existing files reference ProductDetailScreen; this wrapper forwards to ProductDetailsScreen.
+class ProductDetailScreen extends StatelessWidget {
+  final Product product;
+  const ProductDetailScreen({super.key, required this.product});
 
-  // 🔹 Common details UI (used in both desktop & mobile)
-  Widget _buildDetailsSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(product["name"],
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Text(product["price"],
-            style: const TextStyle(fontSize: 20, color: Colors.deepPurple)),
-        const SizedBox(height: 16),
-        const Text("Description",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        const Text(
-          "A stylish, high-quality product perfect for your collection. "
-          "Designed with premium materials to ensure comfort and durability.",
-          style: TextStyle(fontSize: 15, color: Colors.black54),
-        ),
-        const SizedBox(height: 24),
-
-        // 🛒 Add to Cart button
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const CartScreen()));
-          },
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size(double.infinity, 48),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: const Text("Add to Cart"),
-        ),
-
-        const SizedBox(height: 12),
-
-        // 🔹 View All Products button
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AllProductsScreen()),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.deepPurple,
-            minimumSize: const Size(double.infinity, 48),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: const Text(
-            "View All Products",
-            style: TextStyle(color: Colors.white),
-          ),
-        ),
-      ],
-    );
-  }
+  @override
+  Widget build(BuildContext context) => ProductDetailsScreen(product: product);
 }

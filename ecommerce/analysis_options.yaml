@@ -11,6 +11,8 @@ analyzer:
   errors:
     unnecessary_nullable_for_final_variable_declarations: ignore
     unnecessary_null_comparison: ignore
+    non_constant_identifier_names: ignore
+    unused_element: ignore
 include: package:flutter_lints/flutter.yaml
 
 linter:

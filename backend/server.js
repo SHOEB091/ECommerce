@@ -14,7 +14,7 @@ const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require('./routes/cartRoutes');
 
-// Initialize environment variables
+
 
 
 // Initialize app

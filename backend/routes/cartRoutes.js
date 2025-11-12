@@ -7,7 +7,7 @@ const { protect } = require('../middleware/authMiddleware');
 
 
 
-router.use(protect); // all cart routes require auth
+router.use(protect); 
 
 router.get('/', cartCtrl.getCart);
 router.post('/item', cartCtrl.addItem);

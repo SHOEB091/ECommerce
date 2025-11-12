@@ -53,7 +53,7 @@ class CartScreen extends StatelessWidget {
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       const Text('Total', style: TextStyle(color: Colors.grey)),
                       const SizedBox(height: 6),
-                      Text(_fmtPaise(service.totalPaise), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(_fmtPaise(service.totalPaise as int), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     ])),
                     ElevatedButton(onPressed: () {
                       // TODO: navigate to checkout/payment
