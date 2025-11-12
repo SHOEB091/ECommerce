@@ -1,5 +1,7 @@
 // lib/main.dart
+import 'package:ecommerce/screens/cart_screen.dart';
 import 'package:ecommerce/screens/signup_screen.dart';
+import 'package:ecommerce/services/cart_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -35,6 +37,8 @@ Future<void> main() async {
     debugPrint('⚠️ NotificationsService init failed: $e');
   }
 
+await CartService.instance.init();
+debugPrint('✅ CartService initialized');
   // Load .env: different path on web vs mobile if you keep .env under assets for web builds
   final envPath = kIsWeb ? 'assets/.env' : '.env';
   try {
@@ -55,6 +59,7 @@ Future<void> main() async {
       }
     }
   }
+  
 
   runApp(const MyApp());
 }
@@ -89,6 +94,7 @@ class MyApp extends StatelessWidget {
         '/chat': (context) => const ChatScreen(),
         '/notifications': (context) => const NotificationsScreen(),
         '/admin': (context) => AdminPanel(),
+        '/cart': (context) => const CartScreen(),
       },
     );
   }
