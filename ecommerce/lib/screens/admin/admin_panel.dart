@@ -1,7 +1,10 @@
+// lib/screens/admin/admin_panel.dart
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'product_model.dart';
 import 'add_product_page.dart';
 import 'category_page.dart';
@@ -15,34 +18,78 @@ class AdminPanel extends StatefulWidget {
 
 class _AdminPanelState extends State<AdminPanel> {
   List<Product> products = [];
-  final String baseUrl = 'http://10.249.13.166:5000/api/products/';
-  final _storage = const FlutterSecureStorage();
+  bool _isLoading = false;
+  String? _error;
 
-  String? _adminName;
+  // platform-aware base
+  String _getApiBase({int port = 5000}) {
+    if (kIsWeb) return 'http://localhost:$port/api';
+    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api';
+    return 'http://localhost:$port/api';
+  }
 
   Future<void> _fetchProducts() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    final String baseUrl = '${_getApiBase()}/products';
     try {
-      final res = await http.get(Uri.parse(baseUrl));
-      if (res.statusCode == 200) {
-        final List data = jsonDecode(res.body)['data'];
-        setState(() => products = data.map((e) => Product.fromJson(e)).toList());
+      final res = await http.get(Uri.parse(baseUrl), headers: {'Accept': 'application/json'});
+      debugPrint('DEBUG GET $baseUrl -> ${res.statusCode}');
+      debugPrint('DEBUG Body: ${res.body}');
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final decoded = jsonDecode(res.body);
+        final raw = (decoded is Map && decoded.containsKey('data')) ? decoded['data'] : decoded;
+
+        if (raw is List) {
+          setState(() {
+            products = raw.map<Product>((e) {
+              // ensure each item is a Map<String, dynamic>
+              if (e is Map<String, dynamic>) return Product.fromJson(e);
+              return Product.fromJson(Map<String, dynamic>.from(e));
+            }).toList();
+          });
+        } else {
+          setState(() {
+            _error = 'Unexpected response shape: ${raw.runtimeType}';
+            products = [];
+          });
+        }
+      } else {
+        setState(() {
+          _error = 'Failed to load products: ${res.statusCode}';
+          products = [];
+        });
       }
-    } catch (e) {
-      debugPrint('Error fetching products: $e');
+    } catch (e, st) {
+      debugPrint('Error fetching products: $e\n$st');
+      setState(() {
+        _error = 'Error fetching products: ${e.toString()}';
+        products = [];
+      });
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   Future<void> _deleteProduct(String id) async {
-    final res = await http.delete(Uri.parse('$baseUrl$id'));
-    if (res.statusCode == 200) {
-      _fetchProducts();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('🗑️ Product deleted successfully')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Failed to delete: ${res.body}')),
-      );
+    final String url = '${_getApiBase()}/products/$id';
+    try {
+      final res = await http.delete(Uri.parse(url));
+      debugPrint('DEBUG DELETE $url -> ${res.statusCode}');
+      debugPrint('DEBUG Body: ${res.body}');
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🗑️ Product deleted successfully')));
+        await _fetchProducts();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ Failed to delete: ${res.body}')));
+      }
+    } catch (e) {
+      debugPrint('Error deleting product: $e');
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting product: $e')));
     }
   }
 
@@ -102,11 +149,31 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  Widget _productImage(Product product) {
+    if (product.imageUrl.isEmpty) {
+      return Container(
+        color: Colors.grey[200],
+        child: const Center(child: Icon(Icons.image_outlined, size: 40, color: Colors.grey)),
+      );
+    }
+
+    return Image.network(
+      product.imageUrl,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) {
+        return Container(
+          color: Colors.grey[200],
+          child: const Center(child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey)),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final crossAxisCount =
-        screenWidth > 1000 ? 4 : screenWidth > 700 ? 3 : 2;
+    final crossAxisCount = screenWidth > 1000 ? 4 : screenWidth > 700 ? 3 : 2;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FB),
@@ -114,15 +181,13 @@ class _AdminPanelState extends State<AdminPanel> {
         elevation: 4,
         backgroundColor: Colors.white,
         centerTitle: true,
-        title: const Text(
-          'Admin Panel',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchProducts,
+            tooltip: 'Refresh',
           ),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black87),
+        ],
       ),
       drawer: Drawer(
         elevation: 8,
@@ -151,67 +216,36 @@ class _AdminPanelState extends State<AdminPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CircleAvatar(
-                      radius: 32,
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.admin_panel_settings,
-                          color: Color(0xFF3B82F6), size: 36),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _adminName ?? 'Admin User',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Manage your store efficiently',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
+                    CircleAvatar(radius: 28, backgroundColor: Colors.blueAccent, child: Icon(Icons.admin_panel_settings, size: 30, color: Colors.white)),
+                    SizedBox(height: 10),
+                    Text('Admin Dashboard', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 4),
+                    Text('Manage store content', style: TextStyle(color: Colors.grey)),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 10),
-
-              // 🔹 Menu Items
-              _drawerItem(
-                icon: Icons.shopping_bag_outlined,
-                text: 'Manage Products',
-                onTap: () => Navigator.pop(context),
-              ),
-              _drawerItem(
-                icon: Icons.category_outlined,
-                text: 'Manage Categories',
+              ListTile(
+                leading: const Icon(Icons.shopping_bag_outlined),
+                title: const Text('Manage Products'),
                 onTap: () {
                   Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CategoryPage()),
-                  );
                 },
               ),
-              _drawerItem(
-                icon: Icons.analytics_outlined,
-                text: 'Analytics Dashboard',
-                onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('📊 Coming soon...')),
-                ),
+              ListTile(
+                leading: const Icon(Icons.category_outlined),
+                title: const Text('Manage Categories'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const CategoryPage()));
+                },
               ),
-
-              const Spacer(),
               const Divider(),
-              _drawerItem(
-                icon: Icons.logout,
-                text: 'Logout',
-                color: Colors.redAccent,
-                onTap: _logout,
+              ListTile(
+                leading: const Icon(Icons.analytics_outlined),
+                title: const Text('Analytics Dashboard'),
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('📊 Coming soon: Analytics Dashboard')));
+                },
               ),
               const SizedBox(height: 20),
             ],
@@ -223,10 +257,7 @@ class _AdminPanelState extends State<AdminPanel> {
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF3B82F6),
         onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddProductPage()),
-          );
+          final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductPage()));
           if (result == true) _fetchProducts();
         },
         label: const Text(
@@ -235,118 +266,63 @@ class _AdminPanelState extends State<AdminPanel> {
         ),
         icon: const Icon(Icons.add),
       ),
-
-      // 🧱 Product Grid
-      body: products.isEmpty
+      body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: GridView.builder(
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 18,
-                  mainAxisSpacing: 18,
-                  childAspectRatio: 0.68,
-                ),
-                itemCount: products.length,
-                itemBuilder: (context, index) {
-                  final product = products[index];
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
+          : _error != null
+              ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(_error!, style: const TextStyle(color: Colors.red))))
+              : products.isEmpty
+                  ? const Center(child: Text('No products found — add one using the button below.'))
+                  : Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: GridView.builder(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.7,
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 🖼 Product Image
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(18)),
-                            child: Image.network(
-                              product.image,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: Colors.grey[100],
-                                child: const Center(
-                                  child: Icon(Icons.broken_image,
-                                      color: Colors.grey, size: 40),
+                        itemCount: products.length,
+                        itemBuilder: (context, index) {
+                          final product = products[index];
+                          return Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(16)), clipBehavior: Clip.hardEdge, child: _productImage(product)),
                                 ),
-                              ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(product.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    const SizedBox(height: 4),
+                                    Text('₹${product.price.toStringAsFixed(2)}', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                                  ]),
+                                ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  children: [
+                                    IconButton(
+                                      onPressed: () async {
+                                        final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => AddProductPage(product: product)));
+                                        if (result == true) _fetchProducts();
+                                      },
+                                      icon: const Icon(Icons.edit, color: Colors.blueAccent),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => _deleteProduct(product.id),
+                                      icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                product.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '₹${product.price}',
-                                style: const TextStyle(
-                                  color: Colors.blueGrey,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit,
-                                        color: Colors.blueAccent),
-                                    tooltip: 'Edit Product',
-                                    onPressed: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              AddProductPage(product: product),
-                                        ),
-                                      );
-                                      if (result == true) _fetchProducts();
-                                    },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete,
-                                        color: Colors.redAccent),
-                                    tooltip: 'Delete Product',
-                                    onPressed: () => _deleteProduct(product.id),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                          );
+                        },
+                      ),
                     ),
-                  );
-                },
-              ),
-            ),
     );
   }
 

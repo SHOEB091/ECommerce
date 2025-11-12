@@ -17,7 +17,7 @@ const profileRoutes = require("./routes/profile.routes");
 const addressRoutes = require("./routes/address.routes");
 
 
-// Initialize environment variables
+
 
 
 // Initialize app
