@@ -2,13 +2,28 @@ const Product = require('../models/productModel');
 const cloudinary = require('../config/cloudinary');
 const { success, error } = require('../utils/response');
 
-// Create product
+// ✅ Extract Cloudinary public_id from image URL
+function getPublicIdFromUrl(url) {
+  try {
+    const parts = url.split('/');
+    const fileWithExt = parts[parts.length - 1]; // ex: abcdxyz.png
+    const folder = parts[parts.length - 2]; // ex: products
+    const publicId = fileWithExt.split('.')[0]; // ex: abcdxyz
+    return `${folder}/${publicId}`;
+  } catch {
+    return null;
+  }
+}
+
+// ✅ Create product
 exports.createProduct = async (req, res) => {
   try {
-    let imageUrl = '';
+    let image = '';
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, { folder: 'products' });
-      imageUrl = result.secure_url;
+      // Upload directly from memory buffer
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      const result = await cloudinary.uploader.upload(base64, { folder: 'products' });
+      image = result.secure_url;
     }
 
     const product = await Product.create({
@@ -17,16 +32,17 @@ exports.createProduct = async (req, res) => {
       price: req.body.price,
       stock: req.body.stock,
       category: req.body.category,
-      image: imageUrl,
+      image,
     });
 
-    success(res, product, 'Product created successfully');
+    success(res, product, '✅ Product created successfully');
   } catch (err) {
+    console.error(err);
     error(res, err.message);
   }
 };
 
-// Get all products
+// ✅ Get all products
 exports.getAllProducts = async (req, res) => {
   try {
     const products = await Product.find().populate('category', 'name');
@@ -36,7 +52,7 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
-// Get single product
+// ✅ Get single product
 exports.getProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id).populate('category', 'name');
@@ -47,16 +63,24 @@ exports.getProduct = async (req, res) => {
   }
 };
 
-// Update product
+// ✅ Update product (with image replacement)
 exports.updateProduct = async (req, res) => {
   try {
     let product = await Product.findById(req.params.id);
     if (!product) return error(res, 'Product not found', 404);
 
-    let imageUrl = product.image;
+    let image = product.image;
+
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, { folder: 'products' });
-      imageUrl = result.secure_url;
+      // Delete old Cloudinary image if exists
+      if (product.image) {
+        const publicId = getPublicIdFromUrl(product.image);
+        if (publicId) await cloudinary.uploader.destroy(publicId);
+      }
+
+      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+      const result = await cloudinary.uploader.upload(base64, { folder: 'products' });
+      image = result.secure_url;
     }
 
     product = await Product.findByIdAndUpdate(
@@ -67,24 +91,33 @@ exports.updateProduct = async (req, res) => {
         price: req.body.price,
         stock: req.body.stock,
         category: req.body.category,
-        image: imageUrl,
+        image,
       },
       { new: true }
     );
 
-    success(res, product, 'Product updated');
+    success(res, product, '✅ Product updated successfully');
   } catch (err) {
+    console.error(err);
     error(res, err.message);
   }
 };
 
-// Delete product
+// ✅ Delete product (and its Cloudinary image)
 exports.deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findById(req.params.id);
     if (!product) return error(res, 'Product not found', 404);
-    success(res, product, 'Product deleted');
+
+    if (product.image) {
+      const publicId = getPublicIdFromUrl(product.image);
+      if (publicId) await cloudinary.uploader.destroy(publicId);
+    }
+
+    await Product.findByIdAndDelete(req.params.id);
+    success(res, product, '🗑️ Product deleted and image removed');
   } catch (err) {
+    console.error(err);
     error(res, err.message);
   }
 };

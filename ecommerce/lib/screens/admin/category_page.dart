@@ -11,7 +11,7 @@ class CategoryPage extends StatefulWidget {
 }
 
 class _CategoryPageState extends State<CategoryPage> {
-  final String baseUrl = 'http://localhost:4000/api/categories';
+  final String baseUrl = 'http://localhost:5000/api/categories';
   List<Category> _categories = [];
   bool _isLoading = false;
 
