@@ -27,8 +27,8 @@ class _AddProductPageState extends State<AddProductPage> {
   List<Category> _categories = [];
   String? _selectedCategory;
 
-  final String baseUrl = 'http://localhost:4000/api/products';
-  final String categoryUrl = 'http://localhost:4000/api/categories';
+  final String baseUrl = 'http://localhost:5000/api/products';
+  final String categoryUrl = 'http://localhost:5000/api/categories';
 
   @override
   void initState() {

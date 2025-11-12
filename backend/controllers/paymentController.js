@@ -1,0 +1,152 @@
+// controllers/paymentController.js
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
+const Cart = require('../models/cartModel');
+const Product = require('../models/productModel');
+
+const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
+
+let razorpay = null;
+if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: RAZORPAY_KEY_ID,
+    key_secret: RAZORPAY_KEY_SECRET,
+  });
+} else {
+  console.warn('⚠️ Razorpay keys not found in env. Payments will be disabled until configured.');
+}
+
+function toPaiseFromNumber(n) {
+  return Math.round(Number(n || 0) * 100);
+}
+
+function shortReceipt(userId) {
+  const u = String(userId).slice(-6);
+  const rand = crypto.randomBytes(3).toString('hex'); // 6 hex chars
+  return `r_${u}_${rand}`; // short and unique, well under 40 chars
+}
+
+/**
+ * Create Razorpay order from the user's cart.
+ * Expects req.user to be populated by auth middleware (protect).
+ */
+exports.createOrder = async (req, res) => {
+  try {
+    if (!razorpay) return res.status(500).json({ success: false, message: 'Payment provider not configured' });
+
+    const userId = req.user && req.user._id;
+    if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
+
+    // fetch cart (attempt to populate product details)
+    const cart = await Cart.findOne({ user: userId }).populate('items.productId', 'price name');
+    if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
+      return res.status(400).json({ success: false, message: 'Cart is empty. Add items before creating order.' });
+    }
+
+    let totalPaise = 0;
+    const debugItems = [];
+
+    for (const it of cart.items) {
+      let unitPaise = 0;
+      let productName = '';
+
+      try {
+        // prefer populated product price
+        if (it.productId && typeof it.productId === 'object' && it.productId.price != null) {
+          unitPaise = toPaiseFromNumber(it.productId.price);
+          productName = it.productId.name || String(it.productId._id || '');
+        } else if (it.price != null) {
+          // cart item snapshot price (in rupees)
+          unitPaise = toPaiseFromNumber(it.price);
+          productName = it.title || '';
+        } else if (it.priceInPaise != null) {
+          unitPaise = parseInt(it.priceInPaise, 10);
+          productName = it.title || '';
+        } else if (it.productId && typeof it.productId === 'string') {
+          // fallback: query product
+          const p = await Product.findById(it.productId).select('price name');
+          if (p && p.price != null) {
+            unitPaise = toPaiseFromNumber(p.price);
+            productName = p.name || String(p._id);
+          }
+        }
+      } catch (err) {
+        console.error('price-resolve error for item', err);
+      }
+
+      const qty = Number(it.qty || it.quantity || 1);
+      const itemTotal = (unitPaise || 0) * Math.max(1, qty);
+      debugItems.push({ productId: it.productId, name: productName, unitPaise, qty, itemTotal });
+
+      totalPaise += itemTotal;
+    }
+
+    console.log('createOrder debugItems:', JSON.stringify(debugItems));
+    console.log('createOrder totalPaise computed =', totalPaise);
+
+    if (totalPaise <= 0) {
+      return res.status(400).json({ success: false, message: 'Cart total invalid (0). Check product prices.' });
+    }
+
+    const receipt = shortReceipt(userId);
+    const options = {
+      amount: totalPaise,
+      currency: 'INR',
+      receipt,
+      // payment_capture: 1 // optional: auto-capture payments
+    };
+
+    console.log('createOrder: creating razorpay order', { userId: String(userId), totalPaise, options });
+
+    const order = await razorpay.orders.create(options);
+
+    return res.status(200).json({
+      success: true,
+      key: RAZORPAY_KEY_ID,
+      order, // contains id, amount, currency, receipt, etc.
+    });
+  } catch (err) {
+    console.error('createOrder error:', err && err.error ? err.error : err);
+    const detail = err && err.error && err.error.description ? err.error.description : (err.message || 'Unknown error');
+    return res.status(500).json({ success: false, message: 'Payment order creation failed', detail });
+  }
+};
+
+/**
+ * Verify payment signature sent from client after Razorpay Checkout
+ * Client should post:
+ * {
+ *   razorpay_order_id,
+ *   razorpay_payment_id,
+ *   razorpay_signature
+ * }
+ */
+exports.verifyPayment = async (req, res) => {
+  try {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({ success: false, message: 'Missing payment verification fields' });
+    }
+
+    if (!RAZORPAY_KEY_SECRET) {
+      return res.status(500).json({ success: false, message: 'Razorpay secret not configured' });
+    }
+
+    const generatedSignature = crypto
+      .createHmac('sha256', RAZORPAY_KEY_SECRET)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest('hex');
+
+    if (generatedSignature === razorpay_signature) {
+      
+      console.log('verifyPayment: signature valid for order', razorpay_order_id);
+      return res.status(200).json({ success: true, message: 'Payment verified' });
+    } else {
+      console.warn('verifyPayment: signature mismatch', { generatedSignature, received: razorpay_signature });
+      return res.status(400).json({ success: false, message: 'Invalid signature' });
+    }
+  } catch (err) {
+    console.error('verifyPayment error:', err);
+    return res.status(500).json({ success: false, message: 'Payment verification failed', detail: err.message || err });
+  }
+};
