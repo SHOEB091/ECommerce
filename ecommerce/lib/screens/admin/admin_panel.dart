@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'product_model.dart';
 import 'add_product_page.dart';
-import 'category_page.dart'; // ✅ Added this import for category management
+import 'category_page.dart'; 
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -14,7 +14,7 @@ class AdminPanel extends StatefulWidget {
 
 class _AdminPanelState extends State<AdminPanel> {
   List<Product> products = [];
-  final String baseUrl = 'http://localhost:4000/api/products';
+  final String baseUrl = 'http://localhost:5000/api/products';
 
   Future<void> _fetchProducts() async {
     try {
