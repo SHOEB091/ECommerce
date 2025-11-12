@@ -14,7 +14,7 @@ class AdminPanel extends StatefulWidget {
 
 class _AdminPanelState extends State<AdminPanel> {
   List<Product> products = [];
-  final String baseUrl = 'http://localhost:4000/api/products';
+  final String baseUrl = 'http://localhost:4000/api/products/';
 
   Future<void> _fetchProducts() async {
     try {
