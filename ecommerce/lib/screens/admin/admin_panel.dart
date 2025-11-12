@@ -93,10 +93,60 @@ class _AdminPanelState extends State<AdminPanel> {
     }
   }
 
+  Future<void> _loadAdminInfo() async {
+    final name = await _storage.read(key: 'userName');
+    final email = await _storage.read(key: 'userEmail');
+    setState(() {
+      _adminName = name ?? email ?? 'Admin';
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _fetchProducts();
+    _loadAdminInfo();
+  }
+
+  Future<void> _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _storage.deleteAll();
+      if (mounted) {
+        Navigator.pop(context);
+        Navigator.pushReplacementNamed(context, '/login');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('👋 Logged out successfully')),
+        );
+      }
+    }
   }
 
   Widget _productImage(Product product) {
@@ -126,8 +176,10 @@ class _AdminPanelState extends State<AdminPanel> {
     final crossAxisCount = screenWidth > 1000 ? 4 : screenWidth > 700 ? 3 : 2;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF7F9FB),
       appBar: AppBar(
-        title: const Text('Admin Panel'),
+        elevation: 4,
+        backgroundColor: Colors.white,
         centerTitle: true,
         actions: [
           IconButton(
@@ -138,14 +190,30 @@ class _AdminPanelState extends State<AdminPanel> {
         ],
       ),
       drawer: Drawer(
+        elevation: 8,
         child: SafeArea(
           child: Column(
             children: [
+              // 🔷 Header
               Container(
-                color: Colors.blue.shade50,
                 width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                child: const Column(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF4F46E5), Color(0xFF3B82F6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      blurRadius: 6,
+                      color: Colors.black26,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     CircleAvatar(radius: 28, backgroundColor: Colors.blueAccent, child: Icon(Icons.admin_panel_settings, size: 30, color: Colors.white)),
@@ -179,16 +247,23 @@ class _AdminPanelState extends State<AdminPanel> {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('📊 Coming soon: Analytics Dashboard')));
                 },
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
+
+      // 🔘 Floating Add Button
       floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF3B82F6),
         onPressed: () async {
           final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductPage()));
           if (result == true) _fetchProducts();
         },
-        label: const Text('Add Product'),
+        label: const Text(
+          'Add Product',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
         icon: const Icon(Icons.add),
       ),
       body: _isLoading
@@ -248,6 +323,27 @@ class _AdminPanelState extends State<AdminPanel> {
                         },
                       ),
                     ),
+    );
+  }
+
+  Widget _drawerItem({
+    required IconData icon,
+    required String text,
+    required VoidCallback onTap,
+    Color color = Colors.black87,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      hoverColor: Colors.blue.shade50,
     );
   }
 }
