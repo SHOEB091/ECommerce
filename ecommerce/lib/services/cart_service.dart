@@ -1,322 +1,299 @@
 // lib/services/cart_service.dart
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 
+/// Rich result used by the service methods
+class CartResult {
+  final bool success;
+  final String message;
+  final int? statusCode;
+  final dynamic data;
+
+  CartResult({required this.success, required this.message, this.statusCode, this.data});
+
+  @override
+  String toString() => 'CartResult(success: $success, status: $statusCode, message: $message)';
+}
+
+/// Simple CartItem model used in the frontend (kept compatibility with your existing UI)
 class CartItem {
-  final String id; // productId string
+  final String id; // product id
   final String title;
   final String? image;
-  final int priceInPaise; // integer paise
-  int qty;
+  final int qty;
+  final int priceInPaise;
 
   CartItem({
     required this.id,
     required this.title,
-    this.image,
+    required this.qty,
     required this.priceInPaise,
-    this.qty = 1,
+    this.image,
   });
 
-  Map<String, dynamic> toJson() => {
-        'productId': id,
-        'title': title,
-        'image': image,
-        'priceInPaise': priceInPaise,
-        'qty': qty,
-      };
-
-  static CartItem fromJson(Map<String, dynamic> j) {
-    final productId = (j['productId'] ?? j['id'] ?? '').toString();
-    final title = (j['title'] ?? j['name'] ?? '').toString();
-    final image = j['image']?.toString();
-    final priceInPaise =
-        _toInt(j['priceInPaise'] ?? j['price_paise'] ?? j['price'] ?? 0);
-    final qty = _toInt(j['qty'] ?? j['quantity'] ?? 1);
-
+  factory CartItem.fromJson(Map<String, dynamic> json) {
+    final product = json['productId'] ?? json['product'] ?? {};
+    final productId = product is Map ? (product['_id'] ?? product['id'] ?? '') : (json['productId'] ?? '');
+    final name = (product is Map ? (product['name'] ?? '') : (json['title'] ?? ''));
+    final price = (product is Map ? (product['price'] ?? 0) : (json['price'] ?? 0));
+    final image = (product is Map ? (product['image'] ?? '') : (json['image'] ?? ''));
+    final qty = json['qty'] ?? 1;
+    final priceInPaise = json['priceInPaise'] ?? ((price is num) ? ((price * 100).round()) : 0);
     return CartItem(
-      id: productId,
-      title: title,
-      image: image,
-      priceInPaise: priceInPaise,
-      qty: qty,
+      id: productId.toString(),
+      title: name.toString(),
+      qty: qty is int ? qty : int.parse(qty.toString()),
+      priceInPaise: priceInPaise is int ? priceInPaise : int.parse(priceInPaise.toString()),
+      image: image.toString().isEmpty ? null : image.toString(),
     );
-  }
-
-  static int _toInt(dynamic v) {
-    if (v == null) return 0;
-    if (v is int) return v;
-    if (v is double) return v.round();
-    if (v is String) {
-      final parsed = int.tryParse(v);
-      if (parsed != null) return parsed;
-      final d = double.tryParse(v);
-      if (d != null) return d.round();
-    }
-    return 0;
   }
 }
 
 class CartService {
-  CartService._();
-  static final instance = CartService._();
+  CartService._private();
+  static final CartService instance = CartService._private();
 
+  // UI list for listeners
   final ValueNotifier<List<CartItem>> items = ValueNotifier<List<CartItem>>([]);
-  static const _kStorageKey = 'app_cart_v1';
-  bool _initialized = false;
+  int totalPaise = 0;
 
-  String get _base {
-    // Priority: explicit env override -> web localhost -> android emulator -> localhost fallback
-    final fromEnv = dotenv.env['API_BASE'];
-    if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+  // storage for token (optional)
+  final _secureStorage = const FlutterSecureStorage();
 
-    // Web builds can reach the backend at localhost when run on same machine
-    if (kIsWeb) return 'http://localhost:5000/api/v1';
+  // default host + api prefix reflect your server mounting in server.js (/api/v1)
+  String _host = 'localhost';
+  int _port = 5000;
+  String _apiPrefix = '/api/v1';
 
-    // Android emulator uses 10.0.2.2 to reach host machine's localhost
-    return 'http://10.0.2.2:5000/api/v1';
+  String? _token; // in-memory token (if set)
+
+  /// Call at app startup to configure host/port/prefix (optional)
+  void configure({String host = 'localhost', int port = 5000, String apiPrefix = '/api/v1'}) {
+    _host = host;
+    _port = port;
+    _apiPrefix = apiPrefix;
   }
 
-  Map<String, String> _defaultHeaders([String? token]) {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-    if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+  /// call after login to set token and optionally fetch cart
+  Future<void> init({String? token, bool fetch = true}) async {
+    if (token != null && token.isNotEmpty) {
+      _token = token;
+      // save token in secure storage for later app restarts
+      try {
+        await _secureStorage.write(key: 'token', value: token);
+      } catch (e) {
+        debugPrint('CartService: unable to persist token: $e');
+      }
+    } else {
+      // attempt to load a persisted token if present
+      try {
+        final stored = await _secureStorage.read(key: 'token');
+        if (stored != null && stored.isNotEmpty) _token = stored;
+      } catch (e) {
+        debugPrint('CartService: error reading token: $e');
+      }
+    }
+
+    if (fetch) await fetchCart();
+  }
+
+  /// Manual token write (e.g. when logging out)
+  Future<void> setToken(String? token) async {
+    _token = token;
+    if (token == null) {
+      try {
+        await _secureStorage.delete(key: 'token');
+      } catch (_) {}
+    } else {
+      try {
+        await _secureStorage.write(key: 'token', value: token);
+      } catch (_) {}
+    }
+  }
+
+  String _base() {
+    if (kIsWeb) return 'http://$_host:$_port$_apiPrefix';
+    if (Platform.isAndroid) return 'http://10.0.2.2:$_port$_apiPrefix';
+    return 'http://$_host:$_port$_apiPrefix';
+  }
+
+  Map<String, String> _headers() {
+    final headers = {'Accept': 'application/json', 'Content-Type': 'application/json'};
+    if (_token != null && _token!.isNotEmpty) headers['Authorization'] = 'Bearer $_token';
     return headers;
   }
 
-  /// Call once at app startup
-  Future<void> init() async {
-    if (_initialized) return;
-    _initialized = true;
-    await _loadFromStorage();
-    await _trySyncFromServer();
-  }
+  // ---------- Operations return CartResult for helpful UI messages ----------
 
-  Future<void> _trySyncFromServer() async {
+  /// Fetch cart from server and populate items notifier.
+  Future<CartResult> fetchCart() async {
     try {
-      final r = await _apiGet('/cart');
-      if (r == null) return;
-      final status = r['status'] as int? ?? 0;
-      final body = r['body'];
-      if (status == 200 && body != null && body['cart'] != null) {
-        final cartJson = body['cart'] as Map<String, dynamic>;
-        final itemsJson = cartJson['items'] as List<dynamic>? ?? [];
-        final remote = <CartItem>[];
-        for (final e in itemsJson) {
+      final url = '${_base()}/cart';
+      final res = await http.get(Uri.parse(url), headers: _headers()).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        final cart = (decoded is Map && decoded.containsKey('cart')) ? decoded['cart'] : decoded;
+        final itemsRaw = cart is Map ? (cart['items'] ?? []) : (decoded['items'] ?? []);
+        final list = <CartItem>[];
+        for (final i in itemsRaw) {
           try {
-            final m = Map<String, dynamic>.from(e as Map);
-            final pid = (m['productId'] is Map)
-                ? (m['productId']['_id'] ?? m['productId']['id'])
-                : m['productId'];
-            final entry = {
-              'productId': pid,
-              'title': m['title'] ??
-                  (m['productId'] is Map ? m['productId']['name'] : null),
-              'image': m['image'] ??
-                  (m['productId'] is Map ? m['productId']['image'] : null),
-              'priceInPaise': m['priceInPaise'] ?? m['price'] ?? null,
-              'qty': m['qty'] ?? m['quantity'] ?? 1,
-            };
-            remote.add(CartItem.fromJson(entry));
-          } catch (err) {
-            debugPrint('[CartService] skip remote item parse: $err');
-          }
-        }
-
-        // merge remote + local
-        final Map<String, CartItem> merged = {};
-        for (final it in remote) merged[it.id] = it;
-        for (final it in items.value) {
-          if (merged.containsKey(it.id)) merged[it.id]!.qty += it.qty;
-          else merged[it.id] = it;
-        }
-        final mergedList = merged.values.toList();
-        items.value = mergedList;
-        await _saveToStorage(mergedList);
-
-        // push merged to server (best-effort)
-        for (final it in mergedList) {
-          try {
-            await _apiPost('/cart/item', {'productId': it.id, 'qty': it.qty});
+            if (i is Map<String, dynamic>) {
+              list.add(CartItem.fromJson(i));
+            } else if (i is Map) {
+              list.add(CartItem.fromJson(Map<String, dynamic>.from(i)));
+            }
           } catch (e) {
-            debugPrint('[CartService] push merged item failed: $e');
+            debugPrint('CartService.fetchCart: skip item parse error: $e');
           }
         }
-      }
-    } catch (e) {
-      debugPrint('[CartService] remote sync failed: $e');
-    }
-  }
-
-  void addToCart(CartItem item, {int addQty = 1}) {
-    if (addQty <= 0) addQty = 1;
-    final list = List<CartItem>.from(items.value);
-    final idx = list.indexWhere((c) => c.id == item.id);
-    if (idx >= 0) {
-      list[idx].qty = (list[idx].qty + addQty);
-    } else {
-      final clone = CartItem(
-          id: item.id,
-          title: item.title,
-          image: item.image,
-          priceInPaise: item.priceInPaise,
-          qty: addQty);
-      list.insert(0, clone);
-    }
-    items.value = list;
-    _saveToStorage(list);
-
-    // push to server (best-effort)
-    _apiPost('/cart/item', {'productId': item.id, 'qty': addQty})
-        .catchError((e) => debugPrint('[CartService] push add failed: $e'));
-  }
-
-  Future<void> updateQty(String productId, int qty) async {
-    final list = items.value.map((c) {
-      if (c.id == productId) c.qty = qty;
-      return c;
-    }).where((c) => c.qty > 0).toList();
-
-    items.value = list;
-    _saveToStorage(list);
-
-    try {
-      await _apiPut('/cart/item/$productId', {'qty': qty});
-    } catch (e) {
-      debugPrint('[CartService] push update failed: $e');
-    }
-  }
-
-  Future<void> remove(String productId) async {
-    final list = items.value.where((c) => c.id != productId).toList();
-    items.value = list;
-    _saveToStorage(list);
-
-    try {
-      await _apiDelete('/cart/item/$productId');
-    } catch (e) {
-      debugPrint('[CartService] push remove failed: $e');
-    }
-  }
-
-  Future<void> clear() async {
-    items.value = [];
-    _saveToStorage([]);
-    try {
-      await _apiDelete('/cart');
-    } catch (e) {
-      debugPrint('[CartService] push clear failed: $e');
-    }
-  }
-
-  int get totalPaise =>
-      items.value.fold(0, (s, c) => s + c.priceInPaise * c.qty);
-  int get itemCount => items.value.fold(0, (s, c) => s + c.qty);
-
-  Future<void> _saveToStorage(List<CartItem> list) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonList = list.map((c) => jsonEncode(c.toJson())).toList();
-      await prefs.setStringList(_kStorageKey, jsonList);
-    } catch (e) {
-      debugPrint('[CartService] save error: $e');
-    }
-  }
-
-  Future<void> _loadFromStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getStringList(_kStorageKey);
-      if (saved == null || saved.isEmpty) {
+        items.value = list;
+        _recomputeTotal();
+        return CartResult(success: true, message: 'Fetched cart', statusCode: res.statusCode, data: list);
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        // auth required: clear local cart
         items.value = [];
-        return;
-      }
-      final list = <CartItem>[];
-      for (final s in saved) {
-        try {
-          final m = jsonDecode(s) as Map<String, dynamic>;
-          list.add(CartItem.fromJson(m));
-        } catch (e) {
-          debugPrint('[CartService] decode saved item error: $e');
-        }
-      }
-      items.value = list;
-    } catch (e) {
-      debugPrint('[CartService] load error: $e');
-      items.value = [];
-    }
-  }
-
-  // -------------------------
-  // Internal HTTP helpers
-  // -------------------------
-  Future<Map<String, dynamic>?> _apiGet(String path, {String? token}) async {
-    try {
-      final url = '$_base$path';
-      final headers = _defaultHeaders(token);
-      final resp = await http.get(Uri.parse(url), headers: headers);
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        return {
-          'status': resp.statusCode,
-          'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-        };
+        totalPaise = 0;
+        return CartResult(success: false, message: 'Authentication required', statusCode: res.statusCode);
+      } else if (res.statusCode == 404) {
+        return CartResult(success: false, message: 'Cart route not found (404). Check backend path.', statusCode: res.statusCode);
       } else {
-        debugPrint('[CartService] GET ${resp.statusCode}: ${resp.body}');
-        return {'status': resp.statusCode, 'body': resp.body};
+        return CartResult(success: false, message: 'Failed to fetch cart (${res.statusCode})', statusCode: res.statusCode);
       }
     } catch (e) {
-      debugPrint('[CartService] _apiGet error: $e');
-      return null;
+      debugPrint('CartService.fetchCart error: $e');
+      return CartResult(success: false, message: 'Network error fetching cart: $e');
     }
   }
 
-  Future<Map<String, dynamic>> _apiPost(String path, Map<String, dynamic> body,
-      {String? token}) async {
-    final url = '$_base$path';
-    final headers = _defaultHeaders(token);
-    final resp =
-        await http.post(Uri.parse(url), headers: headers, body: jsonEncode(body));
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return {
-        'status': resp.statusCode,
-        'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-      };
-    } else {
-      throw Exception('POST ${resp.statusCode}: ${resp.body}');
+  /// Try adding an item to the cart. Returns CartResult to inspect reason on failure.
+  Future<CartResult> addItem(String productId, {int qty = 1}) async {
+    try {
+      // your backend expects POST /api/v1/cart/item (based on server.js)
+      final url = '${_base()}/cart/item';
+      final body = json.encode({'productId': productId, 'qty': qty});
+      final res = await http.post(Uri.parse(url), headers: _headers(), body: body).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        // parse and update local cart
+        try {
+          final decoded = json.decode(res.body);
+          final cart = (decoded is Map && decoded.containsKey('cart')) ? decoded['cart'] : decoded;
+          final itemsRaw = cart is Map ? (cart['items'] ?? []) : (decoded['items'] ?? []);
+          final list = <CartItem>[];
+          for (final i in itemsRaw) {
+            try {
+              if (i is Map<String, dynamic>) list.add(CartItem.fromJson(i));
+              else if (i is Map) list.add(CartItem.fromJson(Map<String, dynamic>.from(i)));
+            } catch (e) {
+              debugPrint('CartService.addItem: skip item parse error: $e');
+            }
+          }
+          items.value = list;
+          _recomputeTotal();
+          return CartResult(success: true, message: 'Added to cart', statusCode: res.statusCode, data: decoded);
+        } catch (e) {
+          return CartResult(success: true, message: 'Added to cart (no cart payload parsed)', statusCode: res.statusCode);
+        }
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        return CartResult(success: false, message: _extractMessageSafe(res.body) ?? 'Authentication required', statusCode: res.statusCode);
+      } else if (res.statusCode == 404) {
+        return CartResult(success: false, message: 'Cart endpoint not found (404) — backend route mismatch', statusCode: 404);
+      } else {
+        return CartResult(success: false, message: _extractMessageSafe(res.body) ?? 'Failed to add item (${res.statusCode})', statusCode: res.statusCode);
+      }
+    } catch (e) {
+      debugPrint('CartService.addItem error: $e');
+      return CartResult(success: false, message: 'Network error: $e');
     }
   }
 
-  Future<Map<String, dynamic>> _apiPut(String path, Map<String, dynamic> body,
-      {String? token}) async {
-    final url = '$_base$path';
-    final headers = _defaultHeaders(token);
-    final resp =
-        await http.put(Uri.parse(url), headers: headers, body: jsonEncode(body));
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return {
-        'status': resp.statusCode,
-        'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-      };
-    } else {
-      throw Exception('PUT ${resp.statusCode}: ${resp.body}');
+  /// Backwards-compatible helper for code expecting bool
+  Future<bool> addItemBool(String productId, {int qty = 1}) async {
+    final r = await addItem(productId, qty: qty);
+    return r.success;
+  }
+
+  Future<CartResult> updateQty(String productId, int qty) async {
+    try {
+      final url = '${_base()}/cart/item/$productId';
+      final res = await http.put(Uri.parse(url), headers: _headers(), body: json.encode({'qty': qty})).timeout(const Duration(seconds: 10));
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        await fetchCart();
+        return CartResult(success: true, message: 'Updated quantity', statusCode: res.statusCode);
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        return CartResult(success: false, message: 'Authentication required', statusCode: res.statusCode);
+      } else if (res.statusCode == 404) {
+        return CartResult(success: false, message: 'Cart update route not found (404)', statusCode: res.statusCode);
+      } else {
+        return CartResult(success: false, message: _extractMessageSafe(res.body) ?? 'Failed to update qty (${res.statusCode})', statusCode: res.statusCode);
+      }
+    } catch (e) {
+      debugPrint('CartService.updateQty error: $e');
+      return CartResult(success: false, message: 'Network error: $e');
     }
   }
 
-  Future<Map<String, dynamic>> _apiDelete(String path, {String? token}) async {
-    final url = '$_base$path';
-    final headers = _defaultHeaders(token);
-    final resp = await http.delete(Uri.parse(url), headers: headers);
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return {
-        'status': resp.statusCode,
-        'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-      };
-    } else {
-      throw Exception('DELETE ${resp.statusCode}: ${resp.body}');
+  Future<CartResult> remove(String productId) async {
+    try {
+      final url = '${_base()}/cart/item/$productId';
+      final res = await http.delete(Uri.parse(url), headers: _headers()).timeout(const Duration(seconds: 10));
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        await fetchCart();
+        return CartResult(success: true, message: 'Removed from cart', statusCode: res.statusCode);
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        return CartResult(success: false, message: 'Authentication required', statusCode: res.statusCode);
+      } else if (res.statusCode == 404) {
+        return CartResult(success: false, message: 'Cart delete route not found (404)', statusCode: res.statusCode);
+      } else {
+        return CartResult(success: false, message: _extractMessageSafe(res.body) ?? 'Failed to remove (${res.statusCode})', statusCode: res.statusCode);
+      }
+    } catch (e) {
+      debugPrint('CartService.remove error: $e');
+      return CartResult(success: false, message: 'Network error: $e');
     }
+  }
+
+  Future<CartResult> clear() async {
+    try {
+      final url = '${_base()}/cart';
+      final res = await http.delete(Uri.parse(url), headers: _headers()).timeout(const Duration(seconds: 10));
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        items.value = [];
+        totalPaise = 0;
+        return CartResult(success: true, message: 'Cleared cart', statusCode: res.statusCode);
+      } else if (res.statusCode == 401 || res.statusCode == 403) {
+        return CartResult(success: false, message: 'Authentication required', statusCode: res.statusCode);
+      } else if (res.statusCode == 404) {
+        return CartResult(success: false, message: 'Clear cart route not found (404)', statusCode: res.statusCode);
+      } else {
+        return CartResult(success: false, message: _extractMessageSafe(res.body) ?? 'Failed to clear (${res.statusCode})', statusCode: res.statusCode);
+      }
+    } catch (e) {
+      debugPrint('CartService.clear error: $e');
+      return CartResult(success: false, message: 'Network error: $e');
+    }
+  }
+
+  // ---------- helpers ----------
+  void _recomputeTotal() {
+    var sum = 0;
+    for (final it in items.value) {
+      sum += (it.priceInPaise * it.qty);
+    }
+    totalPaise = sum;
+  }
+
+  String? _extractMessageSafe(String? body) {
+    if (body == null || body.isEmpty) return null;
+    try {
+      final j = json.decode(body);
+      if (j is Map && j['message'] != null) return j['message'].toString();
+      if (j is Map && j['error'] != null) return j['error'].toString();
+    } catch (_) {}
+    return body;
   }
 }

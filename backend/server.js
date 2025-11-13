@@ -13,8 +13,11 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require('./routes/cartRoutes');
+const profileRoutes = require("./routes/profile.routes");
+const addressRoutes = require("./routes/address.routes");
 
-// Initialize environment variables
+
+
 
 
 // Initialize app
@@ -22,7 +25,11 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: "*", // for testing — allow all origins
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
 app.use(express.json());
 app.use(bodyParser.json());
 
@@ -35,6 +42,8 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use('/api/v1/cart', cartRoutes);
+app.use("/api/address", addressRoutes);
+app.use("/api/profile", profileRoutes);
 
 app.use('/api/v1/payments', paymentRoutes);
 
