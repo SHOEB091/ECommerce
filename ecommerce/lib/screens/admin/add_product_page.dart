@@ -24,8 +24,7 @@ class _AddProductPageState extends State<AddProductPage> {
   final _priceCtrl = TextEditingController();
   final _stockCtrl = TextEditingController();
 
-  Uint8List? _webImage;
-  XFile? _pickedFile;
+  File? _image;
   bool _isLoading = false;
 
   List<Category> _categories = [];
@@ -121,28 +120,21 @@ class _AddProductPageState extends State<AddProductPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _isLoading = true);
 
     final uri = widget.product == null ? Uri.parse(baseUrl) : Uri.parse('$baseUrl/${widget.product!.id}');
     final request = http.MultipartRequest(widget.product == null ? 'POST' : 'PUT', uri);
 
-      request.fields['name'] = _nameCtrl.text.trim();
-      request.fields['description'] = _descCtrl.text.trim();
-      request.fields['price'] = _priceCtrl.text.trim();
-      request.fields['stock'] = _stockCtrl.text.trim();
-      request.fields['category'] = _selectedCategory ?? '';
+    request.fields['name'] = _nameCtrl.text.trim();
+    request.fields['description'] = _descCtrl.text.trim();
+    request.fields['price'] = _priceCtrl.text.trim();
+    request.fields['stock'] = _stockCtrl.text.trim();
+    request.fields['category'] = _selectedCategory ?? '';
 
-      if (_pickedFile != null) {
-        if (kIsWeb && _webImage != null) {
-          request.files.add(http.MultipartFile.fromBytes(
-            'image',
-            _webImage!,
-            filename: _pickedFile!.name,
-          ));
-        } else {
-          request.files.add(await http.MultipartFile.fromPath('image', _pickedFile!.path));
-        }
-      }
+    if (_image != null) {
+      request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
+    }
 
     try {
       final response = await request.send();
@@ -176,11 +168,9 @@ class _AddProductPageState extends State<AddProductPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.product != null;
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Edit Product' : 'Add Product'),
+        title: Text(widget.product == null ? 'Add Product' : 'Edit Product'),
         centerTitle: true,
       ),
       body: Padding(

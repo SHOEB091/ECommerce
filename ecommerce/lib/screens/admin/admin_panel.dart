@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'product_model.dart';
 import 'add_product_page.dart';
@@ -20,6 +21,10 @@ class _AdminPanelState extends State<AdminPanel> {
   List<Product> products = [];
   bool _isLoading = false;
   String? _error;
+
+  // Secure storage & admin name
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  String _adminName = 'Admin';
 
   // platform-aware base
   String _getApiBase({int port = 5000}) {
@@ -47,7 +52,6 @@ class _AdminPanelState extends State<AdminPanel> {
         if (raw is List) {
           setState(() {
             products = raw.map<Product>((e) {
-              // ensure each item is a Map<String, dynamic>
               if (e is Map<String, dynamic>) return Product.fromJson(e);
               return Product.fromJson(Map<String, dynamic>.from(e));
             }).toList();
@@ -94,11 +98,15 @@ class _AdminPanelState extends State<AdminPanel> {
   }
 
   Future<void> _loadAdminInfo() async {
-    final name = await _storage.read(key: 'userName');
-    final email = await _storage.read(key: 'userEmail');
-    setState(() {
-      _adminName = name ?? email ?? 'Admin';
-    });
+    try {
+      final name = await _storage.read(key: 'userName');
+      final email = await _storage.read(key: 'userEmail');
+      setState(() {
+        _adminName = name ?? email ?? 'Admin';
+      });
+    } catch (e) {
+      debugPrint('Failed to load admin info from storage: $e');
+    }
   }
 
   @override
@@ -127,8 +135,7 @@ class _AdminPanelState extends State<AdminPanel> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Logout'),
@@ -138,13 +145,16 @@ class _AdminPanelState extends State<AdminPanel> {
     );
 
     if (confirmed == true) {
-      await _storage.deleteAll();
+      try {
+        await _storage.deleteAll();
+      } catch (e) {
+        debugPrint('Failed to clear secure storage on logout: $e');
+      }
+
       if (mounted) {
         Navigator.pop(context);
         Navigator.pushReplacementNamed(context, '/login');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('👋 Logged out successfully')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('👋 Logged out successfully')));
       }
     }
   }
@@ -181,11 +191,17 @@ class _AdminPanelState extends State<AdminPanel> {
         elevation: 4,
         backgroundColor: Colors.white,
         centerTitle: true,
+        title: Text(_adminName, style: const TextStyle(color: Colors.black87)),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchProducts,
             tooltip: 'Refresh',
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _logout,
+            tooltip: 'Logout',
           ),
         ],
       ),
@@ -197,8 +213,7 @@ class _AdminPanelState extends State<AdminPanel> {
               // 🔷 Header
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+                padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Color(0xFF4F46E5), Color(0xFF3B82F6)],
@@ -216,11 +231,11 @@ class _AdminPanelState extends State<AdminPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(radius: 28, backgroundColor: Colors.blueAccent, child: Icon(Icons.admin_panel_settings, size: 30, color: Colors.white)),
-                    SizedBox(height: 10),
-                    Text('Admin Dashboard', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 4),
-                    Text('Manage store content', style: TextStyle(color: Colors.grey)),
+                    const CircleAvatar(radius: 28, backgroundColor: Colors.blueAccent, child: Icon(Icons.admin_panel_settings, size: 30, color: Colors.white)),
+                    const SizedBox(height: 10),
+                    Text(_adminName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    const Text('Manage store content', style: TextStyle(color: Colors.white70)),
                   ],
                 ),
               ),

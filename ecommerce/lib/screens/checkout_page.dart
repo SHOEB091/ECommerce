@@ -8,7 +8,7 @@ import 'package:connectivity_plus/connectivity_plus.dart'; // optional - add dep
 class CheckoutPage extends StatefulWidget {
   final List<Map<String, dynamic>> items; // [{productId, name, price, qty}]
   final double amount; // in rupees
-  const CheckoutPage({Key? key, required this.items, required this.amount}) : super(key: key);
+  const CheckoutPage({super.key, required this.items, required this.amount});
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
@@ -69,7 +69,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   void _openCheckout(Map rOrder) {
     final options = {
-      'key': '${const String.fromEnvironment("RZP_KEY_ID", defaultValue: "<YOUR_RZP_TEST_KEY>")}',
+      'key': const String.fromEnvironment("RZP_KEY_ID", defaultValue: "<YOUR_RZP_TEST_KEY>"),
       'amount': rOrder['amount'], // paise
       'order_id': rOrder['id'],
       'name': 'Your App',

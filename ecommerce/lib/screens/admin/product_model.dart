@@ -109,8 +109,9 @@ class Product {
     int stock = 0;
     try {
       final s = json['stock'];
-      if (s is num) stock = s.toInt();
-      else if (s is String) stock = int.tryParse(s) ?? 0;
+      if (s is num) {
+        stock = s.toInt();
+      } else if (s is String) stock = int.tryParse(s) ?? 0;
     } catch (_) {
       stock = 0;
     }

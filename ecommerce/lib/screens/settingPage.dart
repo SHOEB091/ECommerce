@@ -58,14 +58,14 @@ class _SettingPageState extends State<SettingPage> {
             SwitchListTile(
               title: const Text('App Notifications'),
               value: _notifications,
-              activeColor: Colors.blue,
+              activeThumbColor: Colors.blue,
               onChanged: (v) => setState(() => _notifications = v),
               secondary: const Icon(Icons.notifications_outlined),
             ),
             SwitchListTile(
               title: const Text('Newsletter Subscription'),
               value: _newsletter,
-              activeColor: Colors.blue,
+              activeThumbColor: Colors.blue,
               onChanged: (v) => setState(() => _newsletter = v),
               secondary: const Icon(Icons.email_outlined),
             ),
@@ -76,7 +76,7 @@ class _SettingPageState extends State<SettingPage> {
             SwitchListTile(
               title: const Text('Dark Mode'),
               value: _darkMode,
-              activeColor: Colors.blue,
+              activeThumbColor: Colors.blue,
               onChanged: (v) => setState(() => _darkMode = v),
               secondary: const Icon(Icons.dark_mode_outlined),
             ),

@@ -8,6 +8,9 @@ import 'package:ecommerce/screens/admin/admin_panel.dart';
 import '../utils/api.dart';
 import '../services/notifications_service.dart';
 
+// <-- NEW: import CartService so we can init it with the JWT token after login
+import '../services/cart_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -161,6 +164,19 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           debugPrint('LOGIN: no role found in body or token payload');
         }
+
+        // ------------------ NEW: configure & init CartService ------------------
+        // Ensure CartService talks to the same API prefix your server exposes.
+        // Your server uses '/api/v1/cart' so set prefix to '/api/v1'
+        try {
+          CartService.instance.configure(apiPrefix: '/api/v1', port: 5000, host: 'localhost');
+          // Initialize with token so CartService will include Authorization header
+          await CartService.instance.init(token: token);
+          debugPrint('LOGIN: CartService initialized with token');
+        } catch (e) {
+          debugPrint('LOGIN: CartService init/config error: $e');
+        }
+        // ---------------------------------------------------------------------
 
         return body;
       } else {
