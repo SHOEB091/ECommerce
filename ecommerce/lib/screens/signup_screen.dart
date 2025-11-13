@@ -1,8 +1,6 @@
 // lib/screens/sign_up_screen.dart
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
 
 import '../screens/otp_verification_screen.dart';
 import '../utils/api.dart';

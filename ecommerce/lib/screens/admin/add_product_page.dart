@@ -36,8 +36,8 @@ class _AddProductPageState extends State<AddProductPage> {
   @override
   void initState() {
     super.initState();
-    baseUrl = _getApiBase() + '/products';
-    categoryUrl = _getApiBase() + '/categories';
+    baseUrl = '${_getApiBase()}/products';
+    categoryUrl = '${_getApiBase()}/categories';
     _fetchCategories();
 
     if (widget.product != null) {
@@ -90,7 +90,7 @@ class _AddProductPageState extends State<AddProductPage> {
   Future<void> _fetchCategories() async {
     try {
       final res = await http.get(Uri.parse(categoryUrl));
-      debugPrint('DEBUG GET ${categoryUrl} -> ${res.statusCode}');
+      debugPrint('DEBUG GET $categoryUrl -> ${res.statusCode}');
       debugPrint('DEBUG Response body: ${res.body}');
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);
@@ -190,7 +190,7 @@ class _AddProductPageState extends State<AddProductPage> {
               TextFormField(controller: _stockCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Stock Quantity'), validator: (v) => v!.isEmpty ? 'Enter stock quantity' : null),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 items: _categories.map((cat) {
                   return DropdownMenuItem<String>(value: cat.id, child: Text(cat.name));
                 }).toList(),

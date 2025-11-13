@@ -24,7 +24,7 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   void initState() {
     super.initState();
-    baseUrl = _getApiBase() + '/categories';
+    baseUrl = '${_getApiBase()}/categories';
     _fetchCategories();
   }
 

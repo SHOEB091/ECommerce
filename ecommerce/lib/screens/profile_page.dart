@@ -15,10 +15,10 @@ class _ProfilePageState extends State<ProfilePage> {
     'Home',
     '12/4 MG Road, New Delhi, 110001',
   ];
-  String _paymentMethod = 'Visa •••• 4242';
-  int _voucherCount = 2;
-  int _wishlistCount = 7;
-  double _appRating = 4.6;
+  final String _paymentMethod = 'Visa •••• 4242';
+  final int _voucherCount = 2;
+  final int _wishlistCount = 7;
+  final double _appRating = 4.6;
 
   void _onAddressTap() {
     // navigate to address screen or show details
