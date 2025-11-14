@@ -29,10 +29,17 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Middleware
+const allowedOrigins = process.env.FRONTEND_URL 
+  ? process.env.FRONTEND_URL.split(',')
+  : (process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:8080']);
+
 app.use(cors({
-  origin: "*", // for testing — allow all origins
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  origin: process.env.NODE_ENV === 'production' 
+    ? allowedOrigins 
+    : "*", // Allow all in development
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
 }));
 app.use(express.json());
 app.use(bodyParser.json());

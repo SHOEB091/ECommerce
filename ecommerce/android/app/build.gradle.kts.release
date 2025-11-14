@@ -1,0 +1,40 @@
+// Add this to your android/app/build.gradle.kts for release signing
+// Replace the buildTypes section with this:
+
+buildTypes {
+    getByName("release") {
+        // Load keystore properties
+        val keystorePropertiesFile = rootProject.file("key.properties")
+        val keystoreProperties = java.util.Properties()
+        if (keystorePropertiesFile.exists()) {
+            keystoreProperties.load(java.io.FileInputStream(keystorePropertiesFile))
+        }
+
+        signingConfig = signingConfigs.create("release") {
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = file(keystoreProperties["storeFile"] as String)
+            storePassword = keystoreProperties["storePassword"] as String
+        }
+
+        isMinifyEnabled = true
+        isShrinkResources = true
+        proguardFiles(
+            getDefaultProguardFile("proguard-android.txt"),
+            file("proguard-rules.pro")
+        )
+    }
+
+    getByName("debug") {
+        isMinifyEnabled = false
+        isShrinkResources = false
+    }
+}
+
+// Also add this at the top level of android {} block:
+signingConfigs {
+    create("release") {
+        // Configured in buildTypes
+    }
+}
+
