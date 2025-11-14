@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // change this if your backend URL is different / production
-  static const String base = 'http://localhost:5000/api';
+  static const String base = 'https://backend001-88nd.onrender.com/api';
 
   static Future<List<Category>> fetchCategories() async {
     final uri = Uri.parse('$base/categories');

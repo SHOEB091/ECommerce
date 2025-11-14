@@ -19,7 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // Basic helper to perform a PUT request; replace baseUrl with your API host if needed.
   Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) async {
-    final uri = Uri.parse('http://localhost:5000$path');
+    final uri = Uri.parse('https://backend001-88nd.onrender.com$path');
     final resp = await http.put(
       uri,
       headers: {'Content-Type': 'application/json'},

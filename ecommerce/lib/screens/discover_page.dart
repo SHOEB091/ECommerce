@@ -19,9 +19,8 @@ class _DiscoverPageState extends State<DiscoverPage> {
   bool isLoading = true;
   int _selectedIndex = 0;
 
-  // Change this URL to your backend API
-  final String baseUrl = "http://localhost:5000/api"; // For Android emulator
-  // use "http://localhost:5000/api" for web / windows
+  // Production backend API URL
+  final String baseUrl = "https://backend001-88nd.onrender.com/api";
 
   @override
   void initState() {

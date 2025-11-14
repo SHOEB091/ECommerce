@@ -132,13 +132,13 @@ class CartService {
   static final CartService instance = CartService._internal();
 
   // runtime configuration
-  String _host = 'localhost';
-  int _port = 5000;
+  String _host = 'backend001-88nd.onrender.com';
+  int _port = 443;
   String _apiPrefix = '/api/v1';
-  bool _useHttps = false;
+  bool _useHttps = true;
   String get _baseUrl {
     final protocol = _useHttps ? 'https' : 'http';
-    final portPart = (_port != 80 && _port != 443) ? ':$port' : '';
+    final portPart = (_port != 80 && _port != 443) ? ':$_port' : '';
     return '$protocol://$_host$portPart$_apiPrefix';
   }
   String get baseUrl => _baseUrl;
