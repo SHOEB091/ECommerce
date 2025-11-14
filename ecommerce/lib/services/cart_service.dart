@@ -135,7 +135,12 @@ class CartService {
   String _host = 'localhost';
   int _port = 5000;
   String _apiPrefix = '/api/v1';
-  String get _baseUrl => 'http://$_host:$_port$_apiPrefix';
+  bool _useHttps = false;
+  String get _baseUrl {
+    final protocol = _useHttps ? 'https' : 'http';
+    final portPart = (_port != 80 && _port != 443) ? ':$port' : '';
+    return '$protocol://$_host$portPart$_apiPrefix';
+  }
   String get baseUrl => _baseUrl;
 
   final _storage = const FlutterSecureStorage();
@@ -152,10 +157,12 @@ class CartService {
     required String host,
     required int port,
     String apiPrefix = '/api/v1',
+    bool useHttps = false,
   }) {
     _host = host;
     _port = port;
     _apiPrefix = apiPrefix;
+    _useHttps = useHttps;
   }
 
   /// Initialize: load token (if any) and optionally fetch cart.
