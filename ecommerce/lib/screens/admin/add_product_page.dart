@@ -1,10 +1,11 @@
 // lib/screens/admin/add_product_page.dart
 import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart'; // optional: set contentType if you want
 import 'product_model.dart';
 import 'category_model.dart';
 import 'package:flutter/services.dart';
@@ -24,7 +25,10 @@ class _AddProductPageState extends State<AddProductPage> {
   final _priceCtrl = TextEditingController();
   final _stockCtrl = TextEditingController();
 
-  File? _image;
+  // Instead of File, store bytes and filename (works on web + mobile)
+  Uint8List? _imageBytes;
+  String? _imageName;
+
   bool _isLoading = false;
 
   List<Category> _categories = [];
@@ -36,8 +40,8 @@ class _AddProductPageState extends State<AddProductPage> {
   @override
   void initState() {
     super.initState();
-    baseUrl = _getApiBase() + '/products';
-    categoryUrl = _getApiBase() + '/categories';
+    baseUrl = '${_getApiBase()}/products';
+    categoryUrl = '${_getApiBase()}/categories';
     _fetchCategories();
 
     if (widget.product != null) {
@@ -45,7 +49,6 @@ class _AddProductPageState extends State<AddProductPage> {
       _descCtrl.text = widget.product!.description;
       _priceCtrl.text = widget.product!.price.toString();
       _stockCtrl.text = widget.product!.stock.toString();
-      // product.category might be id or object — handle both:
       final cat = widget.product!.category;
       if (cat != null && cat.isNotEmpty) {
         _selectedCategory = cat;
@@ -54,8 +57,9 @@ class _AddProductPageState extends State<AddProductPage> {
   }
 
   String _getApiBase({int port = 5000}) {
+    // Use defaultTargetPlatform to detect Android emulator instead of dart:io.Platform
     if (kIsWeb) return 'http://localhost:$port/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api';
+    if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:$port/api';
     return 'http://localhost:$port/api';
   }
 
@@ -80,17 +84,23 @@ class _AddProductPageState extends State<AddProductPage> {
     try {
       final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (picked != null) {
-        setState(() => _image = File(picked.path));
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _imageBytes = bytes;
+          _imageName = picked.name;
+        });
       }
     } on PlatformException catch (e) {
       debugPrint('Image pick failed: $e');
+    } catch (e) {
+      debugPrint('Image pick failed (other): $e');
     }
   }
 
   Future<void> _fetchCategories() async {
     try {
       final res = await http.get(Uri.parse(categoryUrl));
-      debugPrint('DEBUG GET ${categoryUrl} -> ${res.statusCode}');
+      debugPrint('DEBUG GET $categoryUrl -> ${res.statusCode}');
       debugPrint('DEBUG Response body: ${res.body}');
       if (res.statusCode >= 200 && res.statusCode < 300) {
         final decoded = jsonDecode(res.body);
@@ -132,8 +142,22 @@ class _AddProductPageState extends State<AddProductPage> {
     request.fields['stock'] = _stockCtrl.text.trim();
     request.fields['category'] = _selectedCategory ?? '';
 
-    if (_image != null) {
-      request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
+    // If image bytes exist, add as multipart from bytes (works on web + mobile)
+    if (_imageBytes != null) {
+      // try to determine mime type from filename (simple heuristic)
+      final filename = _imageName ?? 'upload.jpg';
+      String mimeType = 'image/jpeg';
+      if (filename.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+      if (filename.toLowerCase().endsWith('.gif')) mimeType = 'image/gif';
+
+      final parts = mimeType.split('/');
+      final multipartFile = http.MultipartFile.fromBytes(
+        'image', // field name expected by backend
+        _imageBytes!,
+        filename: filename,
+        contentType: MediaType(parts[0], parts[1]),
+      );
+      request.files.add(multipartFile);
     }
 
     try {
@@ -166,6 +190,22 @@ class _AddProductPageState extends State<AddProductPage> {
     super.dispose();
   }
 
+  Widget _imagePreview({double height = 180}) {
+    if (_imageBytes != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.memory(_imageBytes!, height: height, width: double.infinity, fit: BoxFit.cover),
+      );
+    } else {
+      return Container(
+        height: height,
+        width: double.infinity,
+        decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+        child: const Center(child: Icon(Icons.add_a_photo, size: 50, color: Colors.grey)),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -190,7 +230,7 @@ class _AddProductPageState extends State<AddProductPage> {
               TextFormField(controller: _stockCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Stock Quantity'), validator: (v) => v!.isEmpty ? 'Enter stock quantity' : null),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 items: _categories.map((cat) {
                   return DropdownMenuItem<String>(value: cat.id, child: Text(cat.name));
                 }).toList(),
@@ -201,9 +241,7 @@ class _AddProductPageState extends State<AddProductPage> {
               const SizedBox(height: 20),
               GestureDetector(
                 onTap: _pickImage,
-                child: _image == null
-                    ? Container(height: 180, width: double.infinity, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)), child: const Center(child: Icon(Icons.add_a_photo, size: 50, color: Colors.grey)))
-                    : ClipRRect(borderRadius: BorderRadius.circular(12), child: Image.file(_image!, height: 180, fit: BoxFit.cover)),
+                child: _imagePreview(),
               ),
               const SizedBox(height: 24),
               SizedBox(
