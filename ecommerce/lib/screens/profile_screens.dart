@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../utils/api.dart';
 import '../widgets/custom_textfield.dart';
 
 class ProfileScreen extends StatefulWidget {

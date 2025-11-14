@@ -12,7 +12,9 @@ class ProductCache {
   List<Product>? getCategory(String categoryId) => _byCategory[categoryId];
   void setCategory(String categoryId, List<Product> products) {
     _byCategory[categoryId] = products;
-    for (final p in products) _byId[p.id] = p;
+    for (final p in products) {
+      _byId[p.id] = p;
+    }
   }
 
   Product? getById(String id) => _byId[id];

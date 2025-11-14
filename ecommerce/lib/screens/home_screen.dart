@@ -1,5 +1,5 @@
 // lib/screens/home_screen.dart
-// Full updated home screen with dynamic categories/products + add-to-cart + responsive cards
+// Updated HomeScreen with robust add-to-cart handling (tolerant to CartService return types)
 
 import 'dart:async';
 import 'dart:convert';
@@ -41,7 +41,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedCategoryIndex = -1; // index in _categories, -1 = none (still available if you want inline)
+  int _selectedCategoryIndex = -1; // index in _categories, -1 = none
   int _bottomIndex = 0;
 
   // Assets
@@ -62,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
   String? _error;
 
-  // category-specific inline products (still available)
+  // category-specific inline products
   List<Product> _categoryProducts = [];
   bool _categoryLoading = false;
   String? _categoryError;
@@ -86,9 +86,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _bannerController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
     });
 
-    // Configure and initialize CartService (reads persisted token if any)
+    // Configure CartService (host/port/apiPrefix). If token exists, CartService.init(token: ...) should be called elsewhere after login.
     CartService.instance.configure(host: 'localhost', port: 5000, apiPrefix: '/api/v1');
-    // init is async; we don't await here to avoid blocking UI init
+    // do not await here to avoid blocking UI init
     CartService.instance.init();
 
     _loadData();
@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // ---------------- PLATFORM-DEPENDENT API BASE ----------------
   String getApiBase({int port = 5000}) {
     if (kIsWeb) return 'http://localhost:$port/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api'; // Android emulator
+    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api';
     return 'http://localhost:$port/api';
   }
 
@@ -158,7 +158,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _selectCategoryInline(int index) async {
-    // kept for backward compatibility — this loads products inline on the home page
     if (index < 0 || index >= _categories.length) return;
     final category = _categories[index];
     setState(() {
@@ -216,7 +215,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           return InkWell(
                             onTap: () {
                               Navigator.pop(ctx);
-                              // navigate to category page (debounced)
                               _categoryTapDebounce?.cancel();
                               _categoryTapDebounce = Timer(const Duration(milliseconds: 250), () {
                                 _openCategoryPage(c);
@@ -258,12 +256,32 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  // open a dedicated category page
   void _openCategoryPage(Category category) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => CategoryProductsPage(category: category)));
   }
 
+  // ---------- helper: show login snack bar with action ----------
+  void _showLoginSnackBar(BuildContext ctx, {String message = 'Please login to add items to cart'}) {
+    ScaffoldMessenger.of(ctx).removeCurrentSnackBar();
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(
+          label: 'Log in',
+          onPressed: () {
+            Navigator.pushNamed(ctx, '/login');
+          },
+        ),
+      ),
+    );
+  }
+
   // ---------- tolerant add-to-cart helper ----------
+  /// Accepts various shapes of `CartService.addItem` result:
+  /// - `bool` (legacy)
+  /// - `int` (HTTP status code)
+  /// - `Map` (api payload)
+  /// - typed object (CartResult) with properties: success, ok, cart, message, statusCode
   Future<void> _handleAddToCartById(String productId) async {
     try {
       if (productId.trim().isEmpty) {
@@ -287,14 +305,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ok = res >= 200 && res < 300;
         statusCode = res;
       } else if (res is Map) {
-        final map = res as Map;
+        final map = res;
         if (map.containsKey('success')) ok = map['success'] == true;
         if (!ok && map.containsKey('ok')) ok = map['ok'] == true;
         if (!ok && map.containsKey('cart')) ok = true;
         if (map['message'] != null) msg = map['message'].toString();
         if (map['statusCode'] != null) statusCode = int.tryParse(map['statusCode'].toString());
       } else {
-        // typed CartResult or similar: use dynamic property access (safe at runtime)
+        // typed CartResult or other object: attempt dynamic access
         try {
           final dyn = res as dynamic;
           if (dyn.success != null) ok = dyn.success == true;
@@ -303,11 +321,14 @@ class _HomeScreenState extends State<HomeScreen> {
           if (dyn.message != null) msg = dyn.message.toString();
           if (dyn.statusCode != null) {
             final sc = dyn.statusCode;
-            if (sc is int) statusCode = sc;
-            else statusCode = int.tryParse(sc.toString());
+            if (sc is int) {
+              statusCode = sc;
+            } else {
+              statusCode = int.tryParse(sc.toString());
+            }
           }
         } catch (_) {
-          // for unknown non-null result, optimistic fallback
+          // unknown non-null result -> optimistic success
           ok = true;
         }
       }
@@ -319,14 +340,14 @@ class _HomeScreenState extends State<HomeScreen> {
         } catch (_) {}
       }
 
-      // user-visible message
+      // show message to user
       if (ok) {
         ScaffoldMessenger.of(context).removeCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg ?? 'Added to cart')));
       } else {
         final lower = (msg ?? '').toLowerCase();
         if (statusCode == 401 || lower.contains('auth') || lower.contains('login') || lower.contains('unauthorized')) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to add items to cart')));
+          _showLoginSnackBar(context);
         } else if (statusCode == 404 || lower.contains('route not found') || lower.contains('not found')) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Server error: ${msg ?? 'Route not found'}')));
         } else {
@@ -409,8 +430,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: imageHeight,
                 decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(12)),
                 clipBehavior: Clip.hardEdge,
-                child: (p.imageUrl != null && p.imageUrl!.isNotEmpty)
-                    ? Image.network(p.imageUrl!, fit: BoxFit.cover, width: cardWidth, height: imageHeight, errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight))
+                child: (p.imageUrl != null && p.imageUrl.isNotEmpty)
+                    ? Image.network(p.imageUrl, fit: BoxFit.cover, width: cardWidth, height: imageHeight, errorBuilder: (_, __, ___) => _imageFallback(height: imageHeight))
                     : _imageFallback(height: imageHeight),
               ),
               Positioned(
@@ -452,7 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 72,
             decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]),
             clipBehavior: Clip.hardEdge,
-            child: (p.imageUrl != null && p.imageUrl!.isNotEmpty) ? Image.network(p.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(height: 72)) : _imageFallback(height: 72),
+            child: (p.imageUrl != null && p.imageUrl.isNotEmpty) ? Image.network(p.imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(height: 72)) : _imageFallback(height: 72),
           ),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -495,7 +516,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ListTile(leading: const Icon(Icons.help_outline), title: const Text('Help & Support'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen())); }),
       ])),
       Padding(padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8), child: Row(children: [
-        Expanded(child: ElevatedButton.icon(icon: const Icon(Icons.login_outlined), label: const Text('Sign In'), onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign In tapped'))); }, style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)))),
+        Expanded(child: ElevatedButton.icon(icon: const Icon(Icons.login_outlined), label: const Text('Sign In'), onPressed: () { Navigator.pop(context); Navigator.pushNamed(context, '/login'); }, style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)))),
         const SizedBox(width: 10),
         IconButton(onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Log out tapped'))); }, icon: const Icon(Icons.logout), tooltip: 'Log out'),
       ])),
@@ -507,7 +528,6 @@ class _HomeScreenState extends State<HomeScreen> {
     const double horizontalPad = 18.0;
     final double height = isDesktop ? 240 : 140;
 
-    // Use simple dummy banners with placeholder text overlay (network assets or asset images)
     final bannerWidgets = [
       Container(color: Colors.blue.shade300, child: Center(child: Text('BIG SALE\nUP TO 50% OFF', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: isDesktop ? 28 : 18, fontWeight: FontWeight.bold)))),
       Container(color: Colors.purple.shade300, child: Center(child: Text('NEW ARRIVALS\nSHOP NOW', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: isDesktop ? 28 : 18, fontWeight: FontWeight.bold)))),
@@ -602,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(onPressed: _clearCategorySelection, child: const Text('Show all')),
           ])),
           const SizedBox(height: 12),
-          if (_categoryLoading) const Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad), child: Center(child: CircularProgressIndicator())),
+          if (_categoryLoading) const Padding(padding: EdgeInsets.symmetric(horizontal: horizontalPad), child: Center(child: CircularProgressIndicator())),
           if (_categoryError != null) Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad), child: Text('Error: $_categoryError', style: const TextStyle(color: Colors.red))),
           if (!_categoryLoading && _categoryProducts.isEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad), child: const Text('No products in this category')),
           if (!_categoryLoading && _categoryProducts.isNotEmpty)
@@ -643,6 +663,8 @@ class _HomeScreenState extends State<HomeScreen> {
           }),
 
         const SizedBox(height: 18),
+
+        // ... rest of UI (Recommended, Top Collection, etc.)
         Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad), child: Container(height: 92, padding: const EdgeInsets.all(12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]), child: Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Text('NEW COLLECTION', style: TextStyle(fontSize: 12, color: Colors.grey)), SizedBox(height: 6), Text('HANG OUT & PARTY', style: TextStyle(fontWeight: FontWeight.w700))])),
           Container(width: 76, height: 76, decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[200]), clipBehavior: Clip.hardEdge, child: _CachedAssetImage(p1, targetWidth: 76, targetHeight: 76, borderRadius: 10)),
@@ -660,7 +682,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final int columns = (contentWidth ~/ 320).clamp(1, 3);
             return GridView.count(physics: const NeverScrollableScrollPhysics(), shrinkWrap: true, crossAxisCount: columns, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 3.4, children: _recommended.map((p) {
               return InkWell(onTap: () => _openProductFromModel(p), child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), color: Colors.grey[100]), child: Row(children: [
-                Container(width: 72, height: 72, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]), clipBehavior: Clip.hardEdge, child: (p.imageUrl != null && p.imageUrl!.isNotEmpty) ? Image.network(p.imageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(height: 72)) : _imageFallback(height: 72)),
+                Container(width: 72, height: 72, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]), clipBehavior: Clip.hardEdge, child: (p.imageUrl != null && p.imageUrl.isNotEmpty) ? Image.network(p.imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _imageFallback(height: 72)) : _imageFallback(height: 72)),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [Text(p.name, style: const TextStyle(fontWeight: FontWeight.w600)), const SizedBox(height: 6), Text('\$${p.price.toStringAsFixed(2)}', style: const TextStyle(color: Colors.grey))])),
                 IconButton(onPressed: () async {
@@ -762,8 +784,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onBottomTap(int idx) {
     setState(() => _bottomIndex = idx);
-    if (idx == 0) return;
-    else if (idx == 3) {
+    if (idx == 0) {
+      return;
+    } else if (idx == 3) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
     }
   }
@@ -773,7 +796,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return GestureDetector(
       onTap: () {
-        // debounce to avoid double navigation
         _categoryTapDebounce?.cancel();
         _categoryTapDebounce = Timer(const Duration(milliseconds: 300), () {
           _openCategoryPage(category);
@@ -789,9 +811,7 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: BoxDecoration(
                 color: selected ? const Color(0xFFF3EDE9) : Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: selected
-                    ? [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3))]
-                    : null,
+                boxShadow: selected ? [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 3))] : null,
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -841,6 +861,7 @@ class ProductDetails extends StatelessWidget {
       return;
     }
 
+    // Reuse the same tolerant add-to-cart logic from HomeScreen using CartService.
     final dynamic res = await CartService.instance.addItem(id, qty: 1);
     debugPrint('ProductDetails add returned: $res');
 
@@ -856,7 +877,7 @@ class ProductDetails extends StatelessWidget {
       ok = res >= 200 && res < 300;
       statusCode = res;
     } else if (res is Map) {
-      final map = res as Map;
+      final map = res;
       if (map.containsKey('success')) ok = map['success'] == true;
       if (!ok && map.containsKey('ok')) ok = map['ok'] == true;
       if (!ok && map.containsKey('cart')) ok = true;
@@ -871,8 +892,11 @@ class ProductDetails extends StatelessWidget {
         if (dyn.message != null) msg = dyn.message.toString();
         if (dyn.statusCode != null) {
           final sc = dyn.statusCode;
-          if (sc is int) statusCode = sc;
-          else statusCode = int.tryParse(sc.toString());
+          if (sc is int) {
+            statusCode = sc;
+          } else {
+            statusCode = int.tryParse(sc.toString());
+          }
         }
       } catch (_) {
         ok = true;
@@ -887,7 +911,11 @@ class ProductDetails extends StatelessWidget {
     } else {
       final lower = (msg ?? '').toLowerCase();
       if (statusCode == 401 || lower.contains('auth') || lower.contains('login') || lower.contains('unauthorized')) {
-        ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Please login to add items to cart')));
+        ScaffoldMessenger.of(ctx).removeCurrentSnackBar();
+        ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+          content: const Text('Please login to add items to cart'),
+          action: SnackBarAction(label: 'Log in', onPressed: () => Navigator.pushNamed(ctx, '/login')),
+        ));
       } else {
         ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(msg ?? 'Failed to add to cart')));
       }
@@ -974,7 +1002,7 @@ class ProductDetails extends StatelessWidget {
 
   Widget _smallThumb(String? asset) {
     if (asset == null || asset.isEmpty) return const SizedBox();
-    final int cacheW = max(1, (84 * MediaQueryData.fromWindow(WidgetsBinding.instance.window).devicePixelRatio).round());
+    final int cacheW = max(1, (84 * MediaQueryData.fromView(WidgetsBinding.instance.window).devicePixelRatio).round());
     return Container(width: 72, height: 72, decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]), clipBehavior: Clip.hardEdge, margin: const EdgeInsets.symmetric(horizontal: 4), child: Image.network(asset, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.grey[100], child: const Icon(Icons.image_not_supported))));
   }
 }

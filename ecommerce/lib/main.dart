@@ -15,6 +15,7 @@ import 'package:ecommerce/screens/settings_page.dart';
 import 'package:ecommerce/screens/accessories_product_list_screen.dart';
 import 'package:ecommerce/screens/chat_screen.dart';
 import 'package:ecommerce/screens/notofications_screen.dart';
+import 'package:ecommerce/screens/orders_page.dart';
 
 // Admin (optional)
 import 'package:ecommerce/screens/admin/admin_panel.dart';
@@ -39,8 +40,14 @@ Future<void> main() async {
   // Configure CartService to match your backend routing.
   // Your server exposes cart routes under "/api/v1/cart" so we set apiPrefix to '/api/v1'.
   try {
-    CartService.instance.configure(apiPrefix: '/api/v1', port: 5000, host: 'localhost');
-    debugPrint('✅ CartService configured (apiPrefix=/api/v1, port=5000, host=localhost)');
+    CartService.instance.configure(
+      apiPrefix: '/api/v1',
+      port: 5000,
+      host: 'localhost',
+    );
+    debugPrint(
+      '✅ CartService configured (apiPrefix=/api/v1, port=5000, host=localhost)',
+    );
   } catch (e) {
     debugPrint('⚠️ CartService configure error: $e');
   }
@@ -55,7 +62,9 @@ Future<void> main() async {
     } else {
       // Still call init() without token so CartService will fetch empty cart / be ready.
       await CartService.instance.init();
-      debugPrint('ℹ️ CartService initialized without token (no saved token found)');
+      debugPrint(
+        'ℹ️ CartService initialized without token (no saved token found)',
+      );
     }
   } catch (e) {
     debugPrint('⚠️ CartService init error: $e');
@@ -116,6 +125,7 @@ class MyApp extends StatelessWidget {
         '/notifications': (context) => const NotificationsScreen(),
         '/admin': (context) => AdminPanel(),
         '/cart': (context) => const CartScreen(),
+        '/orders': (context) => const OrdersPage(),
       },
     );
   }
