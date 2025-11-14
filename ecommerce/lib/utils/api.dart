@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-const String API_BASE = 'http://localhost:5000/api/v1';
+const String API_BASE = 'https://backend001-88nd.onrender.com/api/v1';
 
 final _storage = const FlutterSecureStorage();
 
