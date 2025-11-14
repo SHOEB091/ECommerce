@@ -135,16 +135,16 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-// Optional helper endpoint (if you want later) — unchanged
+// Get current user profile
 exports.getMe = async (req, res) => {
   try {
-    const userId = req.userId || (req.user && req.user.id) || (req.user && req.user._id);
-    if (!userId) return res.status(401).json({ message: "Unauthorized", success: false });
+    // req.user is set by the protect middleware
+    if (!req.user) {
+      return res.status(401).json({ message: "Unauthorized", success: false });
+    }
 
-    const user = await userModels.findById(userId).select("-password");
-    if (!user) return res.status(404).json({ message: "User not found", success: false });
-
-    res.status(200).json({ success: true, user });
+    // Return the user object (password already excluded by middleware)
+    res.status(200).json({ success: true, user: req.user });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", success: false });

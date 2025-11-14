@@ -87,11 +87,11 @@ router.post('/verify', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid signature' });
     }
 
-    // update order as paid
+    // update order as paid, then set to processing
     order.razorpayOrderId = razorpay_order_id;
     order.razorpayPaymentId = razorpay_payment_id;
     order.razorpaySignature = razorpay_signature;
-    order.status = 'paid';
+    order.status = 'processing'; // Set to processing after successful payment
     await order.save();
 
  
