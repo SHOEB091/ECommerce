@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'profile_setting_page.dart'; // ✅ Edit Profile page
 import 'address_screen.dart'; // ✅ Address Manager
 import 'package:ecommerce/screens/home_screen.dart';
+import '../utils/api.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,16 +14,85 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Dummy data (replace with real API data later)
-  String userName = "Sunie Pham";
-  String userEmail = "sunieux@gmail.com";
+  final _storage = const FlutterSecureStorage();
+  bool _isLoading = true;
+  
+  // User data loaded from login credentials
+  String userName = "Loading...";
+  String userEmail = "";
   String profileImage = "https://i.pravatar.cc/150?img=47";
+  String? userId;
+  String? userRole;
 
   final List<String> _addressLines = ['Home', '12/4 MG Road, New Delhi, 110001'];
   final String _paymentMethod = 'Visa •••• 4242';
   final int _voucherCount = 2;
   final int _wishlistCount = 7;
   final double _appRating = 4.6;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // 🔹 Load user data from secure storage (saved during login)
+  Future<void> _loadUserData() async {
+    setState(() => _isLoading = true);
+    try {
+      // First, try to load from secure storage (saved during login)
+      final userJson = await _storage.read(key: 'user');
+      if (userJson != null) {
+        final userData = jsonDecode(userJson) as Map<String, dynamic>;
+        setState(() {
+          userName = userData['name']?.toString() ?? 'User';
+          userEmail = userData['email']?.toString() ?? '';
+          userId = userData['id']?.toString() ?? userData['_id']?.toString();
+          userRole = userData['role']?.toString();
+          // Generate profile image based on user name/email
+          if (userEmail.isNotEmpty) {
+            final hash = userEmail.hashCode.abs();
+            profileImage = "https://i.pravatar.cc/150?img=${hash % 70}";
+          }
+        });
+      }
+
+      // Optionally fetch fresh data from backend
+      try {
+        final result = await get('/auth/me', auth: true);
+        if (result['status'] == 200 && result['body'] != null) {
+          final body = result['body'] as Map<String, dynamic>;
+          if (body['success'] == true && body['user'] != null) {
+            final userData = body['user'] as Map<String, dynamic>;
+            setState(() {
+              userName = userData['name']?.toString() ?? userName;
+              userEmail = userData['email']?.toString() ?? userEmail;
+              userId = userData['_id']?.toString() ?? userData['id']?.toString() ?? userId;
+              userRole = userData['role']?.toString() ?? userRole;
+              // Save updated user data
+              _storage.write(key: 'user', value: jsonEncode(userData));
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('Failed to fetch fresh user data: $e');
+        // Continue with stored data if API call fails
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+      // Check if user is logged in
+      final token = await _storage.read(key: 'auth_token');
+      if (token == null) {
+        // No token, user not logged in
+        setState(() {
+          userName = "Not logged in";
+          userEmail = "Please log in to view profile";
+        });
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   // 🔹 Navigate to Edit Profile and refresh when back
   Future<void> _onEditProfile() async {
@@ -29,10 +101,8 @@ class _ProfilePageState extends State<ProfilePage> {
       MaterialPageRoute(builder: (_) => const ProfileSettingPage()),
     );
 
-    // Optional: refresh profile data after returning
-    setState(() {
-      // fetch user data again here (API call if available)
-    });
+    // Refresh profile data after returning
+    _loadUserData();
   }
 
   void _onAddressTap() {
@@ -83,28 +153,36 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _onLogout() {
-    showDialog(
+  Future<void> _onLogout() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Log out'),
         content: const Text('Are you sure you want to log out?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      // Clear all stored authentication data
+      await clearToken();
+      await _storage.delete(key: 'user');
+      await _storage.delete(key: 'role');
+      
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
+    }
   }
 
   @override
@@ -124,42 +202,87 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: const Text('Profile', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadUserData,
+            tooltip: 'Refresh profile',
+          ),
+        ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isDesktop = constraints.maxWidth >= 800;
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isDesktop = constraints.maxWidth >= 800;
 
-          // 🔹 Profile header
-          Widget profileHeader = Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 40, backgroundImage: NetworkImage(profileImage)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                // 🔹 Profile header
+                Widget profileHeader = Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       children: [
-                        Text(userName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 18)),
-                        const SizedBox(height: 6),
-                        Text(userEmail, style: const TextStyle(color: Colors.grey)),
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundImage: NetworkImage(profileImage),
+                          onBackgroundImageError: (_, __) {
+                            // Fallback if image fails to load
+                          },
+                          child: profileImage.isEmpty
+                              ? Text(
+                                  userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+                                  style: const TextStyle(fontSize: 32),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(userEmail, style: const TextStyle(color: Colors.grey)),
+                              if (userRole != null) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: userRole == 'admin' || userRole == 'superadmin'
+                                        ? Colors.orange.shade100
+                                        : Colors.blue.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    userRole!.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: userRole == 'admin' || userRole == 'superadmin'
+                                          ? Colors.orange.shade800
+                                          : Colors.blue.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.settings, color: Colors.black87),
+                          onPressed: _onEditProfile, // ✅ opens edit profile
+                        ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.black87),
-                    onPressed: _onEditProfile, // ✅ opens edit profile
-                  ),
-                ],
-              ),
-            ),
-          );
+                );
 
           // 🔹 Options list
           final options = <_OptionItem>[

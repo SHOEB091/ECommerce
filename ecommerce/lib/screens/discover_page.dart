@@ -1,378 +1,348 @@
-// import 'package:flutter/material.dart';
-// import 'profile_page.dart';
-// import 'home_screen.dart';
-// import 'all_product_screen.dart'; 
+import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'profile_page.dart';
+import 'home_screen.dart';
+import 'all_product_screen.dart';
 
-// class DiscoverPage extends StatefulWidget {
-//   const DiscoverPage({super.key});
+class DiscoverPage extends StatefulWidget {
+  const DiscoverPage({super.key});
 
-//   @override
-//   State<DiscoverPage> createState() => _DiscoverPageState();
-// }
+  @override
+  State<DiscoverPage> createState() => _DiscoverPageState();
+}
 
-// class _DiscoverPageState extends State<DiscoverPage> {
-//   bool showSearch = false;
-//   final TextEditingController _searchController = TextEditingController();
-//   final List<Map<String, String>> categories = [
-//     {
-//       'title': 'Clothing',
-//       'image': 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246',
-//     },
-//     {
-//       'title': 'Accessories',
-//       'image': 'https://images.unsplash.com/photo-1519744792095-2f2205e87b6f',
-//     },
-//     {
-//       'title': 'Shoes',
-//       'image': 'https://images.unsplash.com/photo-1542291026-7eec264c27ff',
-//     },
-//     {
-//       'title': 'Collection',
-//       'image': 'https://images.unsplash.com/photo-1521334884684-d80222895322',
-//     },
-//   ];
+class _DiscoverPageState extends State<DiscoverPage> {
+  bool showSearch = false;
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> categories = [];
+  bool isLoading = true;
+  int _selectedIndex = 0;
 
-//   int _selectedIndex = 0;
+  // Change this URL to your backend API
+  final String baseUrl = "http://localhost:5000/api"; // For Android emulator
+  // use "http://localhost:5000/api" for web / windows
 
-//   @override
-//   Widget build(BuildContext context) {
-//     final screenWidth = MediaQuery.of(context).size.width;
-//     final isTablet = screenWidth > 600;
+  @override
+  void initState() {
+    super.initState();
+    fetchCategories();
+  }
 
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text(
-//           'Discover',
-//           style: TextStyle(fontWeight: FontWeight.bold),
-//         ),
-//         centerTitle: true,
-//         leading: IconButton(
-//           icon: const Icon(Icons.menu),
-//           onPressed: () {},
-//         ),
-//         actions: [
-//           IconButton(
-//             icon: const Icon(Icons.notifications_none_outlined),
-//             onPressed: () {},
-//           ),
-//         ],
-//       ),
-//       body: AnimatedSwitcher(
-//         duration: const Duration(milliseconds: 300),
-//         child: showSearch
-//             ? _buildSearchView(isTablet)
-//             : _buildDiscoverView(isTablet),
-//       ),
+  Future<void> fetchCategories() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/categories'));
+      if (response.statusCode == 200) {
+        setState(() {
+          categories = json.decode(response.body);
+          isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to load categories');
+      }
+    } catch (e) {
+      print("Error: $e");
+      setState(() => isLoading = false);
+    }
+  }
 
-//       // ✅ Updated Bottom Navigation Bar
-//       bottomNavigationBar: BottomNavigationBar(
-//         currentIndex: _selectedIndex,
-//         onTap: (index) {
-//           setState(() => _selectedIndex = index);
-//           if (index == 0) {
-//             Navigator.pushReplacement(
-//               context,
-//               MaterialPageRoute(builder: (context) => const HomeScreen()),
-//             );
-//           } else if (index == 1) {
-//             // ✅ Navigate to All Products page
-//             Navigator.push(
-//               context,
-//               MaterialPageRoute(builder: (context) => AllProductsScreen()),
-//             );
-//           } else if (index == 2) {
-//             Navigator.push(
-//               context,
-//               MaterialPageRoute(builder: (context) => const ProfilePage()),
-//             );
-//           }
-//         },
-//         items: const [
-//           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: ''),
-//           BottomNavigationBarItem(
-//               icon: Icon(Icons.grid_view_outlined), label: 'All Products'),
-//           BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
-//         ],
-//       ),
-//     );
-//   }
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
 
-//   // 🔍 Search bar widget
-//   Widget _buildSearchBar() {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
-//       child: TextField(
-//         controller: _searchController,
-//         decoration: InputDecoration(
-//           hintText: 'Search',
-//           prefixIcon: const Icon(Icons.search),
-//           suffixIcon: IconButton(
-//             icon: const Icon(Icons.tune),
-//             onPressed: () {},
-//           ),
-//           filled: true,
-//           fillColor: Colors.grey.shade100,
-//           border: OutlineInputBorder(
-//             borderRadius: BorderRadius.circular(30),
-//             borderSide: BorderSide.none,
-//           ),
-//         ),
-//         onTap: () {
-//           setState(() {
-//             showSearch = true;
-//           });
-//         },
-//       ),
-//     );
-//   }
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Discover',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        leading: IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none_outlined),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : showSearch
+            ? _buildSearchView(isTablet)
+            : _buildDiscoverView(isTablet),
+      ),
 
-//   // 🏷️ Discover grid view
-//   Widget _buildDiscoverView(bool isTablet) {
-//     final crossAxisCount = isTablet ? 2 : 1;
+      // ✅ Bottom Navigation Bar (unchanged)
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() => _selectedIndex = index);
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const HomeScreen()),
+            );
+          } else if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AllProductsScreen()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ProfilePage()),
+            );
+          }
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: ''),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.grid_view_outlined),
+            label: 'All Products',
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: ''),
+        ],
+      ),
+    );
+  }
 
-//     return SingleChildScrollView(
-//       padding: const EdgeInsets.only(bottom: 20),
-//       child: Column(
-//         children: [
-//           _buildSearchBar(),
-//           const SizedBox(height: 10),
-//           GridView.count(
-//             crossAxisCount: crossAxisCount,
-//             shrinkWrap: true,
-//             physics: const NeverScrollableScrollPhysics(),
-//             childAspectRatio: isTablet ? 2.5 : 1.9,
-//             children: categories
-//                 .map((category) => _buildCategoryCard(category))
-//                 .toList(),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
+  // 🔍 Search bar widget
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: () {},
+          ),
+          filled: true,
+          fillColor: Colors.grey.shade100,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide.none,
+          ),
+        ),
+        onTap: () {
+          // Navigate to All Products page when search bar is clicked
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AllProductsScreen()),
+          );
+        },
+      ),
+    );
+  }
 
-//   // 🔍 Search result / popular section
-//   Widget _buildSearchView(bool isTablet) {
-//     final recentSearches = ["Sunglasses", "Sweater", "Hoodie"];
+  // 🏷️ Dynamic Discover grid view (categories)
+  Widget _buildDiscoverView(bool isTablet) {
+    final crossAxisCount = isTablet ? 2 : 1;
 
-//     return SingleChildScrollView(
-//       child: Padding(
-//         padding: const EdgeInsets.all(16.0),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             Row(
-//               children: [
-//                 IconButton(
-//                   icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-//                   onPressed: () => setState(() => showSearch = false),
-//                 ),
-//                 Expanded(child: _buildSearchBar()),
-//               ],
-//             ),
-//             const SizedBox(height: 10),
-//             const Text('Recent Searches',
-//                 style: TextStyle(fontWeight: FontWeight.bold)),
-//             const SizedBox(height: 8),
-//             Wrap(
-//               spacing: 10,
-//               children: recentSearches
-//                   .map((item) => Chip(
-//                         label: Text(item),
-//                         deleteIcon: const Icon(Icons.close, size: 16),
-//                         onDeleted: () {},
-//                       ))
-//                   .toList(),
-//             ),
-//             const SizedBox(height: 20),
-//             Row(
-//               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//               children: const [
-//                 Text('Popular this week',
-//                     style:
-//                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-//                 Text('Show all', style: TextStyle(color: Colors.grey)),
-//               ],
-//             ),
-//             const SizedBox(height: 10),
-//             GridView.count(
-//               crossAxisCount: isTablet ? 3 : 2,
-//               shrinkWrap: true,
-//               physics: const NeverScrollableScrollPhysics(),
-//               childAspectRatio: isTablet ? 0.9 : 0.8,
-//               children: [
-//                 _buildPopularItem('Lihua Tunic White', '\$53.00',
-//                     'https://images.unsplash.com/photo-1554568218-0f1715e72254'),
-//                 _buildPopularItem('Denim Jacket', '\$45.00',
-//                     'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c'),
-//                 _buildPopularItem('Casual Shirt', '\$29.00',
-//                     'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91'),
-//                 _buildPopularItem('Blue Sweater', '\$39.00',
-//                     'https://images.unsplash.com/photo-1521334884684-d80222895322'),
-//                 _buildPopularItem('Skirt Dress', '\$34.00',
-//                     'https://images.unsplash.com/photo-1551024601-bec78aea704b')
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        children: [
+          _buildSearchBar(),
+          const SizedBox(height: 10),
+          GridView.count(
+            crossAxisCount: crossAxisCount,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: isTablet ? 2.5 : 1.9,
+            children: categories
+                .map((category) => _buildCategoryCard(category))
+                .toList(),
+          ),
+        ],
+      ),
+    );
+  }
 
-//   static Widget _buildPopularItem(
-//       String name, String price, String imageUrl) {
-//     return Card(
-//       elevation: 1,
-//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Expanded(
-//             child: ClipRRect(
-//               borderRadius:
-//                   const BorderRadius.vertical(top: Radius.circular(16)),
-//               child: Image.network(imageUrl,
-//                   fit: BoxFit.cover, width: double.infinity),
-//             ),
-//           ),
-//           Padding(
-//             padding: const EdgeInsets.all(8.0),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(name, style: const TextStyle(fontSize: 13)),
-//                 Text(price,
-//                     style: const TextStyle(fontWeight: FontWeight.bold)),
-//               ],
-//             ),
-//           )
-//         ],
-//       ),
-//     );
-//   }
+  // 🔍 Search result / popular section (optional static)
+  Widget _buildSearchView(bool isTablet) {
+    return Center(
+      child: Text(
+        "Search functionality coming soon...",
+        style: TextStyle(color: Colors.grey.shade600),
+      ),
+    );
+  }
 
-//   Widget _buildCategoryCard(Map<String, String> category) {
-//     return GestureDetector(
-//       onTap: () {
-//         Navigator.push(
-//           context,
-//           MaterialPageRoute(
-//               builder: (context) =>
-//                   CategoryDetailPage(title: category['title']!)),
-//         );
-//       },
-//       child: Container(
-//         margin: const EdgeInsets.all(8),
-//         decoration: BoxDecoration(
-//           borderRadius: BorderRadius.circular(16),
-//           image: DecorationImage(
-//             image: NetworkImage(category['image']!),
-//             fit: BoxFit.cover,
-//           ),
-//         ),
-//         child: Container(
-//           decoration: BoxDecoration(
-//             borderRadius: BorderRadius.circular(16),
-//             gradient: LinearGradient(
-//               begin: Alignment.centerLeft,
-//               end: Alignment.centerRight,
-//               colors: [Colors.black.withOpacity(0.4), Colors.transparent],
-//             ),
-//           ),
-//           alignment: Alignment.centerLeft,
-//           child: Padding(
-//             padding: const EdgeInsets.all(16.0),
-//             child: Text(
-//               category['title']!.toUpperCase(),
-//               style: const TextStyle(
-//                   fontSize: 18,
-//                   fontWeight: FontWeight.bold,
-//                   color: Colors.white),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
+  Widget _buildCategoryCard(dynamic category) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CategoryDetailPage(
+              title: category['name'],
+              categoryId: category['_id'],
+              baseUrl: baseUrl,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          image: DecorationImage(
+            image: NetworkImage(category['image'] ?? ''),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [Colors.black.withOpacity(0.4), Colors.transparent],
+            ),
+          ),
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              (category['name'] ?? '').toUpperCase(),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-// // 👇 Keep CategoryDetailPage same as before
-// class CategoryDetailPage extends StatelessWidget {
-//   final String title;
-//   const CategoryDetailPage({super.key, required this.title});
+// 🟢 Category Detail Page (Dynamic products)
+class CategoryDetailPage extends StatefulWidget {
+  final String title;
+  final String categoryId;
+  final String baseUrl;
 
-//   @override
-//   Widget build(BuildContext context) {
-//     final screenWidth = MediaQuery.of(context).size.width;
-//     final isTablet = screenWidth > 600;
+  const CategoryDetailPage({
+    super.key,
+    required this.title,
+    required this.categoryId,
+    required this.baseUrl,
+  });
 
-//     final Map<String, List<Map<String, dynamic>>> categoryItems = {
-//       'Clothing': [
-//         {
-//           'name': 'Jacket',
-//           'count': 128,
-//           'image':
-//               'https://images.unsplash.com/photo-1521335629791-ce4aec67dd47',
-//           'desc': 'Stay warm and stylish with our trendy jackets.'
-//         },
-//         {
-//           'name': 'Skirts',
-//           'count': 40,
-//           'image':
-//               'https://images.unsplash.com/photo-1512436991641-6745cdb1723f',
-//           'desc': 'Elegant skirts perfect for all occasions.'
-//         },
-//       ],
-//     };
+  @override
+  State<CategoryDetailPage> createState() => _CategoryDetailPageState();
+}
 
-//     final items = categoryItems[title] ?? [];
+class _CategoryDetailPageState extends State<CategoryDetailPage> {
+  List<dynamic> products = [];
+  bool isLoading = true;
 
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-//         leading: IconButton(
-//           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-//           onPressed: () => Navigator.pop(context),
-//         ),
-//       ),
-//       body: Padding(
-//         padding:
-//             EdgeInsets.symmetric(horizontal: isTablet ? screenWidth * 0.1 : 10),
-//         child: ListView.builder(
-//           itemCount: items.length,
-//           itemBuilder: (context, index) {
-//             final item = items[index];
-//             return Card(
-//               margin: const EdgeInsets.symmetric(vertical: 10),
-//               shape:
-//                   RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-//               elevation: 1.5,
-//               child: ListTile(
-//                 contentPadding: const EdgeInsets.all(12),
-//                 leading: ClipRRect(
-//                   borderRadius: BorderRadius.circular(12),
-//                   child: Image.network(
-//                     item['image'],
-//                     width: 70,
-//                     height: 70,
-//                     fit: BoxFit.cover,
-//                   ),
-//                 ),
-//                 title: Text(item['name'],
-//                     style: const TextStyle(
-//                         fontWeight: FontWeight.bold, fontSize: 16)),
-//                 subtitle: Text(item['desc'],
-//                     maxLines: 2,
-//                     overflow: TextOverflow.ellipsis,
-//                     style:
-//                         const TextStyle(color: Colors.grey, fontSize: 13)),
-//                 trailing: Text('${item['count']} items',
-//                     style: const TextStyle(
-//                         fontWeight: FontWeight.w500, color: Colors.black54)),
-//               ),
-//             );
-//           },
-//         ),
-//       ),
-//     );
-//   }
-// }
+  @override
+  void initState() {
+    super.initState();
+    fetchProducts();
+  }
+
+  Future<void> fetchProducts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${widget.baseUrl}/products?category=${widget.categoryId}'),
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          products = json.decode(response.body);
+          isLoading = false;
+        });
+      } else {
+        throw Exception("Failed to load products");
+      }
+    } catch (e) {
+      print("Error: $e");
+      setState(() => isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : products.isEmpty
+          ? const Center(child: Text("No products found"))
+          : Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: isTablet ? screenWidth * 0.1 : 10,
+              ),
+              child: ListView.builder(
+                itemCount: products.length,
+                itemBuilder: (context, index) {
+                  final product = products[index];
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 1.5,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.all(12),
+                      leading: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          product['image'] ?? '',
+                          width: 70,
+                          height: 70,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      title: Text(
+                        product['name'] ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      subtitle: Text(
+                        product['description'] ?? '',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 13,
+                        ),
+                      ),
+                      trailing: Text(
+                        "₹${product['price'] ?? ''}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+    );
+  }
+}

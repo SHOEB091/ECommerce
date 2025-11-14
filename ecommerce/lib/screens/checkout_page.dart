@@ -1,10 +1,12 @@
 // lib/screens/checkout_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:ecommerce/services/cart_service.dart';
 import 'package:ecommerce/services/order_service.dart';
 import '../utils/api.dart'; // post(), saveToken()
+import 'dart:io' show Platform;
 
 class CheckoutPage extends StatefulWidget {
   final List<Map<String, dynamic>> items; // [{productId, name, price, qty}]
@@ -16,7 +18,7 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  late Razorpay _razorpay;
+  Razorpay? _razorpay;
   bool _loading = false;
   Map? _localOrder; // local DB order returned by server
   Map? _razorpayOrder;
@@ -30,18 +32,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _stateCtrl = TextEditingController();
   final _postalCtrl = TextEditingController();
 
+  bool get _isDesktop {
+    if (kIsWeb) return false;
+    try {
+      return Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    } catch (e) {
+      // Platform not available (e.g., on web)
+      return false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    if (!_isDesktop) {
+      _razorpay = Razorpay();
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    }
   }
 
   @override
   void dispose() {
-    _razorpay.clear();
+    if (!_isDesktop) {
+      _razorpay?.clear();
+    }
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _line1Ctrl.dispose();
@@ -121,6 +137,48 @@ class _CheckoutPageState extends State<CheckoutPage> {
   }
 
   void _openCheckout(Map rOrder) {
+    if (_isDesktop) {
+      // For desktop, show dialog with payment instructions
+      final orderId = rOrder['id']?.toString() ?? '';
+      final amount = rOrder['amount']?.toString() ?? '';
+
+      // Show dialog with payment instructions
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Desktop Payment'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Razorpay payment gateway is not available on desktop.',
+              ),
+              const SizedBox(height: 16),
+              const Text('Please use one of the following options:'),
+              const SizedBox(height: 8),
+              Text('Order ID: $orderId'),
+              Text('Amount: ₹${(int.tryParse(amount) ?? 0) / 100}'),
+              const SizedBox(height: 16),
+              const Text(
+                'Option 1: Complete payment on mobile app\n'
+                'Option 2: Contact support for manual payment\n'
+                'Option 3: Use web version in browser',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final options = {
       'key':
           _razorpayKey ??
@@ -137,7 +195,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       'theme': {'color': '#F37254'},
     };
     try {
-      _razorpay.open(options);
+      _razorpay?.open(options);
     } catch (e) {
       debugPrint('Error opening razorpay: $e');
     }
@@ -246,6 +304,168 @@ class _CheckoutPageState extends State<CheckoutPage> {
   @override
   Widget build(BuildContext context) {
     final totalLabel = 'Pay ₹${widget.amount.toStringAsFixed(2)}';
+
+    // Show desktop warning banner
+    if (_isDesktop) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Checkout')),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                color: Colors.orange.shade100,
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.orange.shade800),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Payment gateway is not available on desktop. Please use mobile app or web browser.',
+                        style: TextStyle(color: Colors.orange.shade800),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Shipping details',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _nameCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Full name',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Please enter recipient name'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _phoneCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Phone number',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.phone,
+                          validator: (v) => v == null || v.trim().length < 8
+                              ? 'Enter a valid phone number'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _line1Ctrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Address line 1',
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Address line 1 is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _line2Ctrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Address line 2 (optional)',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _cityCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'City',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (v) => v == null || v.trim().isEmpty
+                                    ? 'City is required'
+                                    : null,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _stateCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'State',
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _postalCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Postal code',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Postal code is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Order total: $totalLabel',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _loading ? null : _startPayment,
+                            icon: _loading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.lock_open),
+                            label: Text(
+                              _loading ? 'Processing...' : totalLabel,
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
       body: SafeArea(

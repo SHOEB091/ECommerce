@@ -646,7 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 18),
         ],
 
-        _sectionHeader('Feature Products', onSeeAll: () {}),
+        _sectionHeader('Feature Products', onSeeAll: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const AllProductsScreen()));
+        }),
         const SizedBox(height: 12),
 
         if (!isDesktop)
@@ -671,7 +673,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ]))),
         const SizedBox(height: 18),
 
-        _sectionHeader('Recommended', onSeeAll: () {}),
+        _sectionHeader('Recommended', onSeeAll: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const AllProductsScreen()));
+        }),
         const SizedBox(height: 12),
 
         if (!isDesktop)
@@ -693,7 +697,9 @@ class _HomeScreenState extends State<HomeScreen> {
           })),
 
         const SizedBox(height: 20),
-        _sectionHeader('Top Collection', onSeeAll: () {}),
+        _sectionHeader('Top Collection', onSeeAll: () {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const AllProductsScreen()));
+        }),
         const SizedBox(height: 12),
 
         Padding(padding: const EdgeInsets.symmetric(horizontal: horizontalPad), child: Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.grey[100]), child: Row(children: [
@@ -786,6 +792,9 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _bottomIndex = idx);
     if (idx == 0) {
       return;
+    } else if (idx == 1) {
+      // Search / All Products
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const AllProductsScreen()));
     } else if (idx == 3) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
     }

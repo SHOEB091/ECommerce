@@ -27,3 +27,16 @@ Future<void> saveToken(String token) async {
 Future<void> clearToken() async {
   await _storage.delete(key: 'auth_token');
 }
+
+Future<Map<String, dynamic>> get(String path, {bool auth = false}) async {
+  final token = auth ? await _storage.read(key: 'auth_token') : null;
+  final headers = <String, String>{
+    'Content-Type': 'application/json',
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
+  final resp = await http.get(Uri.parse('$API_BASE$path'), headers: headers);
+  return {
+    'status': resp.statusCode,
+    'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null,
+  };
+}
