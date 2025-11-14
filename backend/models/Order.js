@@ -18,6 +18,16 @@ const OrderSchema = new mongoose.Schema({
   razorpayPaymentId: { type: String },
   razorpaySignature: { type: String },
   status: { type: String, enum: ['created','pending_payment','paid','failed','cancelled'], default: 'created' },
+  paymentMethod: { type: String, default: 'Razorpay' },
+  shippingAddress: {
+    fullName: { type: String },
+    line1: { type: String },
+    line2: { type: String },
+    city: { type: String },
+    state: { type: String },
+    postalCode: { type: String },
+    phone: { type: String },
+  },
   meta: { type: Object }, 
   createdAt: { type: Date, default: Date.now },
 }, { timestamps: true });

@@ -3,6 +3,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const Cart = require('../models/cartModel');
 const Product = require('../models/productModel');
+const Order = require('../models/Order');
 
 const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
 
@@ -37,6 +38,11 @@ exports.createOrder = async (req, res) => {
     const userId = req.user && req.user._id;
     if (!userId) return res.status(401).json({ success: false, message: 'User not authenticated' });
 
+    const address = req.body && req.body.address;
+    if (!address || !address.fullName || !address.line1 || !address.city || !address.postalCode || !address.phone) {
+      return res.status(400).json({ success: false, message: 'Shipping address is required' });
+    }
+
     // fetch cart (attempt to populate product details)
     const cart = await Cart.findOne({ user: userId }).populate('items.productId', 'price name');
     if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
@@ -45,16 +51,25 @@ exports.createOrder = async (req, res) => {
 
     let totalPaise = 0;
     const debugItems = [];
+    const itemsSnapshot = [];
+    const cleanedCartItems = [];
+    let removedCount = 0;
 
     for (const it of cart.items) {
       let unitPaise = 0;
       let productName = '';
+      let productIdValue = it.productId;
+
+      if (productIdValue && typeof productIdValue === 'object' && productIdValue._id) {
+        productIdValue = productIdValue._id;
+      }
 
       try {
         // prefer populated product price
         if (it.productId && typeof it.productId === 'object' && it.productId.price != null) {
           unitPaise = toPaiseFromNumber(it.productId.price);
           productName = it.productId.name || String(it.productId._id || '');
+          productIdValue = it.productId._id || it.productId.id || it.productId.toString();
         } else if (it.price != null) {
           // cart item snapshot price (in rupees)
           unitPaise = toPaiseFromNumber(it.price);
@@ -68,6 +83,7 @@ exports.createOrder = async (req, res) => {
           if (p && p.price != null) {
             unitPaise = toPaiseFromNumber(p.price);
             productName = p.name || String(p._id);
+            productIdValue = p._id;
           }
         }
       } catch (err) {
@@ -76,15 +92,35 @@ exports.createOrder = async (req, res) => {
 
       const qty = Number(it.qty || it.quantity || 1);
       const itemTotal = (unitPaise || 0) * Math.max(1, qty);
-      debugItems.push({ productId: it.productId, name: productName, unitPaise, qty, itemTotal });
+      debugItems.push({ productId: productIdValue || it.productId, name: productName, unitPaise, qty, itemTotal });
+
+      if (!productIdValue) {
+        removedCount += 1;
+        continue;
+      }
 
       totalPaise += itemTotal;
+
+      itemsSnapshot.push({
+        productId: productIdValue,
+        name: productName || 'Item',
+        price: (unitPaise || 0) / 100,
+        qty: Math.max(1, qty),
+      });
+
+      cleanedCartItems.push(it);
     }
 
     console.log('createOrder debugItems:', JSON.stringify(debugItems));
     console.log('createOrder totalPaise computed =', totalPaise);
 
-    if (totalPaise <= 0) {
+    if (removedCount > 0) {
+      cart.items = cleanedCartItems;
+      await cart.save();
+      console.log(`createOrder: removed ${removedCount} stale cart item(s) with missing product references`);
+    }
+
+    if (itemsSnapshot.length === 0 || totalPaise <= 0) {
       return res.status(400).json({ success: false, message: 'Cart total invalid (0). Check product prices.' });
     }
 
@@ -98,12 +134,34 @@ exports.createOrder = async (req, res) => {
 
     console.log('createOrder: creating razorpay order', { userId: String(userId), totalPaise, options });
 
-    const order = await razorpay.orders.create(options);
+    const razorpayOrder = await razorpay.orders.create(options);
+
+    const orderDoc = await Order.create({
+      userId,
+      items: itemsSnapshot,
+      amount: totalPaise / 100,
+      currency: options.currency,
+      receipt: razorpayOrder.receipt,
+      razorpayOrderId: razorpayOrder.id,
+      status: 'pending_payment',
+      paymentMethod: 'Razorpay',
+      shippingAddress: {
+        fullName: address.fullName,
+        line1: address.line1,
+        line2: address.line2 || '',
+        city: address.city,
+        state: address.state || '',
+        postalCode: address.postalCode,
+        phone: address.phone,
+      },
+      meta: { cartSnapshot: debugItems },
+    });
 
     return res.status(200).json({
       success: true,
       key: RAZORPAY_KEY_ID,
-      order, // contains id, amount, currency, receipt, etc.
+      razorpayOrder,
+      order: orderDoc.toObject(),
     });
   } catch (err) {
     console.error('createOrder error:', err && err.error ? err.error : err);
@@ -138,11 +196,35 @@ exports.verifyPayment = async (req, res) => {
       .digest('hex');
 
     if (generatedSignature === razorpay_signature) {
-      
+      const userId = req.user && req.user._id;
+
+      const orderDoc = await Order.findOneAndUpdate(
+        { razorpayOrderId: razorpay_order_id, userId },
+        {
+          $set: {
+            razorpayPaymentId: razorpay_payment_id,
+            razorpaySignature: razorpay_signature,
+            status: 'paid',
+          },
+        },
+        { new: true }
+      );
+
+      if (!orderDoc) {
+        console.warn('verifyPayment: order not found for razorpay id', razorpay_order_id);
+        return res.status(404).json({ success: false, message: 'Order record not found' });
+      }
+
+      await Cart.findOneAndUpdate({ user: userId }, { items: [] });
+
       console.log('verifyPayment: signature valid for order', razorpay_order_id);
-      return res.status(200).json({ success: true, message: 'Payment verified' });
+      return res.status(200).json({ success: true, message: 'Payment verified', order: orderDoc.toObject() });
     } else {
       console.warn('verifyPayment: signature mismatch', { generatedSignature, received: razorpay_signature });
+      await Order.findOneAndUpdate(
+        { razorpayOrderId: razorpay_order_id },
+        { $set: { status: 'failed', razorpaySignature: razorpay_signature } }
+      );
       return res.status(400).json({ success: false, message: 'Invalid signature' });
     }
   } catch (err) {

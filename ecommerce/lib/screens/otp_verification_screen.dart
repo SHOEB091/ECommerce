@@ -1,6 +1,5 @@
 // lib/screens/otp_verification_screen.dart
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:intl/intl.dart';

@@ -10,6 +10,7 @@ const connectDB = require("./config/db");
 // Import routes
 const authRoutes = require("./routes/authRoutes");
 const paymentRoutes = require('./routes/paymentRoutes');
+const orderRoutes = require("./routes/orderRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
 const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require('./routes/cartRoutes');
@@ -46,6 +47,7 @@ app.use("/api/address", addressRoutes);
 app.use("/api/profile", profileRoutes);
 
 app.use('/api/v1/payments', paymentRoutes);
+app.use('/api/v1/orders', orderRoutes);
 
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
