@@ -232,3 +232,82 @@ exports.verifyPayment = async (req, res) => {
     return res.status(500).json({ success: false, message: 'Payment verification failed', detail: err.message || err });
   }
 };
+
+/**
+ * Get all payments/orders with user details (for admin view)
+ * Includes all statuses: created, pending_payment, paid, failed, cancelled
+ */
+exports.getAllPayments = async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Transform to include user details
+    const payments = orders.map(order => ({
+      ...order,
+      user: order.userId ? {
+        id: order.userId._id || order.userId.id,
+        name: order.userId.name || 'Unknown',
+        email: order.userId.email || 'No email',
+      } : null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      payments,
+      total: payments.length,
+      byStatus: {
+        created: payments.filter(p => p.status === 'created').length,
+        pending_payment: payments.filter(p => p.status === 'pending_payment').length,
+        paid: payments.filter(p => p.status === 'paid').length,
+        failed: payments.filter(p => p.status === 'failed').length,
+        cancelled: payments.filter(p => p.status === 'cancelled').length,
+      },
+    });
+  } catch (err) {
+    console.error('getAllPayments error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load payments', detail: err.message || err });
+  }
+};
+
+/**
+ * Cancel a payment/order
+ */
+exports.cancelPayment = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    const userId = req.user && req.user._id;
+
+    if (!orderId) {
+      return res.status(400).json({ success: false, message: 'Order ID is required' });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      userId: userId, // Ensure user can only cancel their own orders
+    });
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found or unauthorized' });
+    }
+
+    // Only allow cancellation if order is not already paid
+    if (order.status === 'paid') {
+      return res.status(400).json({ success: false, message: 'Cannot cancel a paid order' });
+    }
+
+    order.status = 'cancelled';
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Order cancelled successfully',
+      order: order.toObject(),
+    });
+  } catch (err) {
+    console.error('cancelPayment error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to cancel order', detail: err.message || err });
+  }
+};

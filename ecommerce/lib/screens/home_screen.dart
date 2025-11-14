@@ -15,6 +15,7 @@ import 'package:ecommerce/screens/all_product_screen.dart';
 import 'package:ecommerce/screens/more_product_list_screen.dart';
 import 'package:ecommerce/screens/notofications_screen.dart';
 import 'package:ecommerce/screens/profile_page.dart';
+import 'package:ecommerce/screens/profile_setting_page.dart';
 import 'package:ecommerce/screens/settingPage.dart';
 import 'package:ecommerce/screens/orders_page.dart';
 import 'package:ecommerce/screens/help_support_screen.dart';
@@ -31,7 +32,9 @@ import 'package:ecommerce/screens/admin/product_model.dart';
 
 // Cart service & Cart screen
 import 'package:ecommerce/services/cart_service.dart';
+import 'package:ecommerce/services/user_service.dart';
 import 'cart_screen.dart';
+import '../utils/api.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -43,6 +46,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedCategoryIndex = -1; // index in _categories, -1 = none
   int _bottomIndex = 0;
+  final UserService _userService = UserService.instance;
 
   // Assets
   static const String promo = 'assets/promo.png';
@@ -90,6 +94,8 @@ class _HomeScreenState extends State<HomeScreen> {
     CartService.instance.configure(host: 'localhost', port: 5000, apiPrefix: '/api/v1');
     // do not await here to avoid blocking UI init
     CartService.instance.init();
+
+    _userService.ensureUserLoaded();
 
     _loadData();
   }
@@ -499,29 +505,182 @@ class _HomeScreenState extends State<HomeScreen> {
     ]));
   }
 
+  Future<void> _handleLogout() async {
+    await clearToken();
+    await UserService.instance.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Logged out')));
+    setState(() {});
+  }
+
   Widget _drawerContent() {
-    return SafeArea(child: Column(children: [
-      Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20), decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: const BorderRadius.only(bottomRight: Radius.circular(18))), child: Row(children: [
-        const CircleAvatar(radius: 30, backgroundColor: Colors.grey),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [Text('Hello, Guest', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)), SizedBox(height: 4), Text('guest@example.com', style: TextStyle(color: Colors.grey))])),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.edit, size: 20, color: Colors.black54)),
-      ])),
-      const SizedBox(height: 8),
-      Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
-        ListTile(leading: const Icon(Icons.person_outline), title: const Text('Profile'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage())); }),
-        ListTile(leading: const Icon(Icons.shopping_bag_outlined), title: const Text('Orders'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersPage())); }),
-        const Divider(),
-        ListTile(leading: const Icon(Icons.settings_outlined), title: const Text('Settings'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingPage())); }),
-        ListTile(leading: const Icon(Icons.help_outline), title: const Text('Help & Support'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen())); }),
-      ])),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8), child: Row(children: [
-        Expanded(child: ElevatedButton.icon(icon: const Icon(Icons.login_outlined), label: const Text('Sign In'), onPressed: () { Navigator.pop(context); Navigator.pushNamed(context, '/login'); }, style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)))),
-        const SizedBox(width: 10),
-        IconButton(onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Log out tapped'))); }, icon: const Icon(Icons.logout), tooltip: 'Log out'),
-      ])),
-      const SizedBox(height: 8),
-    ]));
+    return SafeArea(
+      child: Column(
+        children: [
+          ValueListenableBuilder<Map<String, dynamic>?>(
+            valueListenable: UserService.instance.user,
+            builder: (context, user, _) {
+              final isLoggedIn = user != null;
+              final name = isLoggedIn ? (user['name'] ?? 'User') : 'Hello, Guest';
+              final email = isLoggedIn ? (user['email'] ?? '') : 'guest@example.com';
+              final avatarRaw = user?['avatar']?.toString() ?? '';
+              final avatar = avatarRaw.isNotEmpty
+                  ? avatarRaw
+                  : (email.toString().isNotEmpty
+                      ? "https://i.pravatar.cc/150?u=${Uri.encodeComponent(email.toString())}"
+                      : '');
+
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: const BorderRadius.only(bottomRight: Radius.circular(18)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.grey,
+                      backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                      child: avatar.isEmpty
+                          ? const Icon(Icons.person, color: Colors.white)
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('$name',
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          Text(
+                            email.toString(),
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        if (isLoggedIn) {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ProfileSettingPage()),
+                          );
+                          _userService.refresh();
+                        } else {
+                          Navigator.pushNamed(context, '/login');
+                        }
+                      },
+                      icon: const Icon(Icons.edit, size: 20, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Profile'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfilePage()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.shopping_bag_outlined),
+                  title: const Text('Orders'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OrdersPage()),
+                    );
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: const Text('Settings'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingPage()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.help_outline),
+                  title: const Text('Help & Support'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const HelpSupportScreen()),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+            child: ValueListenableBuilder<Map<String, dynamic>?>(
+              valueListenable: UserService.instance.user,
+              builder: (context, user, _) {
+                final isLoggedIn = user != null;
+                if (!isLoggedIn) {
+                  return ElevatedButton.icon(
+                    icon: const Icon(Icons.login_outlined),
+                    label: const Text('Sign In'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/login');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.logout),
+                        label: const Text('Log out'),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _handleLogout();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
   }
 
   Widget _buildPromoCarousel(bool isDesktop) {
@@ -776,12 +935,20 @@ class _HomeScreenState extends State<HomeScreen> {
             actions: appBarActions,
           ),
           body: content,
-          bottomNavigationBar: BottomNavigationBar(currentIndex: _bottomIndex, onTap: _onBottomTap, showSelectedLabels: false, showUnselectedLabels: false, elevation: 8, selectedItemColor: Colors.blue, unselectedItemColor: Colors.grey, items: [
-            BottomNavigationBarItem(icon: Icon(_bottomIndex == 0 ? Icons.home : Icons.home_outlined), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(_bottomIndex == 1 ? Icons.search : Icons.search_outlined), label: 'Search'),
-            BottomNavigationBarItem(icon: Icon(_bottomIndex == 2 ? Icons.shopping_bag : Icons.shopping_bag_outlined), label: 'Bag'),
-            BottomNavigationBarItem(icon: Icon(_bottomIndex == 3 ? Icons.person : Icons.person_outline), label: 'Account'),
-          ]),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _bottomIndex,
+            onTap: _onBottomTap,
+            showSelectedLabels: false,
+            showUnselectedLabels: false,
+            elevation: 8,
+            selectedItemColor: Colors.blue,
+            unselectedItemColor: Colors.grey,
+            items: [
+              BottomNavigationBarItem(icon: Icon(_bottomIndex == 0 ? Icons.home : Icons.home_outlined), label: 'Home'),
+              BottomNavigationBarItem(icon: Icon(_bottomIndex == 1 ? Icons.search : Icons.search_outlined), label: 'Search'),
+              BottomNavigationBarItem(icon: Icon(_bottomIndex == 2 ? Icons.person : Icons.person_outline), label: 'Account'),
+            ],
+          ),
           floatingActionButton: chatButton,
         );
       }
@@ -795,7 +962,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (idx == 1) {
       // Search / All Products
       Navigator.push(context, MaterialPageRoute(builder: (_) => const AllProductsScreen()));
-    } else if (idx == 3) {
+    } else if (idx == 2) {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
     }
   }

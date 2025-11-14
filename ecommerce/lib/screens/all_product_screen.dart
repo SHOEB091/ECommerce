@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'product_detail_screen.dart';
-import 'package:ecommerce/screens/home_screen.dart';
 import 'package:ecommerce/screens/admin/product_model.dart';
+import 'package:ecommerce/services/api_service.dart';
+
+import 'product_detail_screen.dart';
 
 class AllProductsScreen extends StatefulWidget {
   const AllProductsScreen({super.key});
@@ -11,239 +12,66 @@ class AllProductsScreen extends StatefulWidget {
 }
 
 class _AllProductsScreenState extends State<AllProductsScreen> {
-  final List<Map<String, dynamic>> _allProducts = [
-    {
-      "id": "1",
-      "name": "Casual Shirt",
-      "price": 45.00,
-      "image": "assets/shirt.jpg",
-      "rating": 4.5,
-      "reviews": 120,
-      "description": "Comfortable casual shirt for everyday wear."
-    },
-    {
-      "id": "2",
-      "name": "Denim Jacket",
-      "price": 65.00,
-      "image": "assets/sample10.jpg",
-      "rating": 4.7,
-      "reviews": 98,
-      "description": "Classic denim jacket with modern style."
-    },
-    {
-      "id": "3",
-      "name": "Linen Dress",
-      "price": 52.00,
-      "image": "assets/sample5.jpg",
-      "rating": 4.5,
-      "reviews": 134,
-      "description": "Elegant linen dress perfect for summer outings."
-    },
-    {
-      "id": "4",
-      "name": "Maxi Dress",
-      "price": 68.00,
-      "image": "assets/sample7.jpg",
-      "rating": 4.6,
-      "reviews": 146,
-      "description": "Beautiful maxi dress with flowing fabric."
-    },
-    {
-      "id": "5",
-      "name": "Leather Wallet",
-      "price": 30.00,
-      "image": "assets/purse.jpg",
-      "rating": 4.8,
-      "reviews": 145,
-      "description": "Premium leather wallet with sleek design."
-    },
-    {
-      "id": "6",
-      "name": "Analog Watch",
-      "price": 75.00,
-      "image": "assets/watch.jpg",
-      "rating": 4.6,
-      "reviews": 201,
-      "description": "Stylish analog watch for all occasions."
-    },
-    {
-      "id": "7",
-      "name": "Perfume",
-      "price": 40.00,
-      "image": "assets/perfume.jpg",
-      "rating": 4.3,
-      "reviews": 132,
-      "description": "Refreshing fragrance with long-lasting scent."
-    },
-    {
-      "id": "8",
-      "name": "Gift Box",
-      "price": 50.00,
-      "image": "assets/giftbox.jpg",
-      "rating": 4.4,
-      "reviews": 158,
-      "description": "Perfect gift box for your loved ones."
-    },
-  ];
-
-  late List<Map<String, dynamic>> _filteredProducts;
-  double _minRating = 0.0;
-  double _maxPrice = 200.0;
-  String _sort = 'none';
+  final TextEditingController _searchController = TextEditingController();
+  List<Product> _allProducts = [];
+  List<Product> _filteredProducts = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _filteredProducts = List<Map<String, dynamic>>.from(_allProducts);
-  }
-
-  void _applyFilters() {
-    List<Map<String, dynamic>> temp = _allProducts.where((p) {
-      final ratingOk = (p['rating'] as double) >= _minRating;
-      final priceOk = (p['price'] as double) <= _maxPrice;
-      return ratingOk && priceOk;
-    }).toList();
-
-    if (_sort == 'price_asc') {
-      temp.sort((a, b) => (a['price'] as double).compareTo(b['price'] as double));
-    } else if (_sort == 'price_desc') {
-      temp.sort((a, b) => (b['price'] as double).compareTo(a['price'] as double));
-    } else if (_sort == 'rating_desc') {
-      temp.sort((a, b) => (b['rating'] as double).compareTo(a['rating'] as double));
-    }
-
-    setState(() {
-      _filteredProducts = temp;
+    _loadProducts();
+    _searchController.addListener(() {
+      _applySearch(_searchController.text);
     });
   }
 
-  void _openFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        double localMinRating = _minRating;
-        double localMaxPrice = _maxPrice;
-        String localSort = _sort;
+  Future<void> _loadProducts() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final products = await ApiService.fetchProducts();
+      if (!mounted) return;
+      setState(() {
+        _allProducts = products;
+        _filteredProducts = List<Product>.from(products);
+      });
+      _applySearch(_searchController.text);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Failed to load products. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
 
-        return StatefulBuilder(builder: (context, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 16,
-              right: 16,
-              top: 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Filter', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    TextButton(
-                      onPressed: () {
-                        setModalState(() {
-                          localMinRating = 0.0;
-                          localMaxPrice = 200.0;
-                          localSort = 'none';
-                        });
-                      },
-                      child: const Text('Reset'),
-                    )
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Text('Minimum rating'),
-                Slider(
-                  min: 0,
-                  max: 5,
-                  divisions: 5,
-                  value: localMinRating,
-                  label: localMinRating.toStringAsFixed(1),
-                  onChanged: (v) => setModalState(() => localMinRating = v),
-                ),
-                const SizedBox(height: 8),
-                const Text('Max price (\$)'),
-                Slider(
-                  min: 0,
-                  max: 200,
-                  divisions: 20,
-                  value: localMaxPrice,
-                  label: localMaxPrice.toStringAsFixed(0),
-                  onChanged: (v) => setModalState(() => localMaxPrice = v),
-                ),
-                const SizedBox(height: 8),
-                const Text('Sort by'),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'none',
-                        groupValue: localSort,
-                        title: const Text('None'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'price_asc',
-                        groupValue: localSort,
-                        title: const Text('Price ↑'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'price_desc',
-                        groupValue: localSort,
-                        title: const Text('Price ↓'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
-                    ),
-                    Expanded(
-                      child: RadioListTile<String>(
-                        contentPadding: EdgeInsets.zero,
-                        value: 'rating_desc',
-                        groupValue: localSort,
-                        title: const Text('Rating'),
-                        onChanged: (v) => setModalState(() => localSort = v!),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          _minRating = localMinRating;
-                          _maxPrice = localMaxPrice;
-                          _sort = localSort;
-                          _applyFilters();
-                          Navigator.of(context).pop();
-                        },
-                        child: const Text('Apply'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          );
-        });
-      },
-    );
+  void _applySearch(String query) {
+    final q = query.trim().toLowerCase();
+    setState(() {
+      if (q.isEmpty) {
+        _filteredProducts = List<Product>.from(_allProducts);
+      } else {
+        _filteredProducts = _allProducts.where((product) {
+          final name = product.name.toLowerCase();
+          final desc = product.description.toLowerCase();
+          final category = product.category.toLowerCase();
+          return name.contains(q) || desc.contains(q) || category.contains(q);
+        }).toList();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -255,42 +83,92 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-          onPressed: () {
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-              (route) => false,
-            );
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "All Products",
+          'Search Products',
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.filter_list_rounded, color: Colors.black),
-              onPressed: _openFilterSheet,
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.black),
+            onPressed: _loading ? null : _loadProducts,
           ),
         ],
       ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Found ${_filteredProducts.length} Results",
-                style: const TextStyle(fontSize: 15, color: Colors.grey),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: GridView.builder(
+          child: _buildBody(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: _loadProducts,
+            child: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _searchController,
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: _searchController.text.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () {
+                      _searchController.clear();
+                      _applySearch('');
+                    },
+                  ),
+            filled: true,
+            fillColor: Colors.grey.shade100,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Found ${_filteredProducts.length} results',
+          style: const TextStyle(fontSize: 15, color: Colors.grey),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: _filteredProducts.isEmpty
+              ? Center(
+                  child: Text(
+                    'No products match your search.',
+                    style: TextStyle(color: Colors.grey.shade600),
+                  ),
+                )
+              : GridView.builder(
                   physics: const BouncingScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -300,99 +178,135 @@ class _AllProductsScreenState extends State<AllProductsScreen> {
                   ),
                   itemCount: _filteredProducts.length,
                   itemBuilder: (context, index) {
-                    final productMap = _filteredProducts[index];
-                    final product = Product.fromJson(productMap);
-
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ProductDetailScreen(product: product),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            )
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(12),
-                                      topRight: Radius.circular(12),
-                                    ),
-                                    child: Image.asset(
-                                      product.imageUrl ?? '',
-                                      fit: BoxFit.cover,
-                                      width: double.infinity,
-                                    ),
-                                  ),
-                                  const Positioned(
-                                    top: 8,
-                                    right: 8,
-                                    child: CircleAvatar(
-                                      radius: 14,
-                                      backgroundColor: Colors.white,
-                                      child: Icon(
-                                        Icons.favorite_border,
-                                        color: Colors.black,
-                                        size: 18,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    product.name ?? '',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    "₹${product.price}",
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
+                    final product = _filteredProducts[index];
+                    return _ProductCard(product: product);
                   },
                 ),
-              ),
-            ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ProductCard extends StatelessWidget {
+  const _ProductCard({required this.product});
+
+  final Product product;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailScreen(product: product),
           ),
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                      topRight: Radius.circular(12),
+                    ),
+                    child: _ProductImage(imageUrl: product.imageUrl),
+                  ),
+                  const Positioned(
+                    top: 8,
+                    right: 8,
+                    child: CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.favorite_border,
+                        color: Colors.black,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '₹${product.price.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _ProductImage extends StatelessWidget {
+  const _ProductImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.isEmpty) {
+      return Image.asset(
+        'assets/placeholder.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+
+    return FadeInImage.assetNetwork(
+      placeholder: 'assets/placeholder.png',
+      image: imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      imageErrorBuilder: (_, __, ___) {
+        return Image.asset(
+          'assets/placeholder.png',
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+        );
+      },
     );
   }
 }

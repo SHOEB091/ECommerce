@@ -439,8 +439,10 @@ class _OrdersViewState extends State<OrdersView> {
   static Widget _statusChip(String status) {
     Color bg;
     Color text;
-    switch (status.toLowerCase()) {
+    final normalized = status.toLowerCase().replaceAll('_', ' ');
+    switch (normalized) {
       case 'pending':
+      case 'pending payment':
         bg = Colors.orange.shade100;
         text = Colors.orange.shade800;
         break;
@@ -453,12 +455,21 @@ class _OrdersViewState extends State<OrdersView> {
         text = Colors.purple.shade800;
         break;
       case 'delivered':
+      case 'paid':
         bg = Colors.green.shade100;
         text = Colors.green.shade800;
         break;
       case 'cancelled':
         bg = Colors.red.shade100;
         text = Colors.red.shade800;
+        break;
+      case 'failed':
+        bg = Colors.redAccent.shade100;
+        text = Colors.redAccent.shade700;
+        break;
+      case 'created':
+        bg = Colors.blueGrey.shade100;
+        text = Colors.blueGrey.shade800;
         break;
       default:
         bg = Colors.grey.shade100;
@@ -472,7 +483,7 @@ class _OrdersViewState extends State<OrdersView> {
       ),
       child: Text(
         _normalizeStatus(status),
-        style: TextStyle(fontSize: 12, color: text),
+        style: TextStyle(fontSize: 12, color: text, fontWeight: FontWeight.w600),
       ),
     );
   }
