@@ -33,8 +33,16 @@ class _AddressManagerState extends State<AddressManager> {
       });
 
       if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
         setState(() {
-          addresses = List<Map<String, dynamic>>.from(jsonDecode(res.body));
+          if (data is Map && data['success'] == true) {
+            addresses = List<Map<String, dynamic>>.from(data['addresses'] ?? []);
+          } else if (data is List) {
+            // Fallback for old format
+            addresses = List<Map<String, dynamic>>.from(data);
+          } else {
+            addresses = [];
+          }
         });
       } else {
         print('❌ Failed to fetch addresses: ${res.statusCode} -> ${res.body}');
@@ -115,10 +123,14 @@ class _AddressManagerState extends State<AddressManager> {
                     );
                   }
                 } else {
+                  final errorData = jsonDecode(res.body);
+                  final errorMsg = errorData['message'] ?? 'Failed to save address';
                   print("❌ Failed to save address: ${res.statusCode} -> ${res.body}");
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to save: ${res.body}')),
-                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(errorMsg)),
+                    );
+                  }
                 }
               } catch (e) {
                 print('⚠️ Error saving address: $e');
@@ -149,11 +161,20 @@ class _AddressManagerState extends State<AddressManager> {
       if (res.statusCode == 200) {
         print("🗑️ Address deleted successfully");
         fetchAddresses();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Address deleted')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Address deleted')),
+          );
+        }
       } else {
+        final errorData = jsonDecode(res.body);
+        final errorMsg = errorData['message'] ?? 'Failed to delete address';
         print("❌ Delete failed: ${res.statusCode} -> ${res.body}");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMsg)),
+          );
+        }
       }
     } catch (e) {
       print('⚠️ Error deleting address: $e');

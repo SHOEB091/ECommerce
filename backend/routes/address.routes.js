@@ -5,8 +5,11 @@ const {
   updateAddress,
   deleteAddress,
 } = require("../controllers/address.controller");
+const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
+
+router.use(protect); // Protect all address routes
 
 router.get("/", getAddresses);
 router.post("/", createAddress);

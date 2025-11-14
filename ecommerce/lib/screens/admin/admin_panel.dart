@@ -9,6 +9,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'product_model.dart';
 import 'add_product_page.dart';
 import 'category_page.dart';
+import 'admin_analytics_page.dart';
+import 'payments_page.dart';
 
 class AdminPanel extends StatefulWidget {
   const AdminPanel({super.key});
@@ -259,7 +261,16 @@ class _AdminPanelState extends State<AdminPanel> {
                 leading: const Icon(Icons.analytics_outlined),
                 title: const Text('Analytics Dashboard'),
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('📊 Coming soon: Analytics Dashboard')));
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAnalyticsPage()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.payment_outlined),
+                title: const Text('All Payments'),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PaymentsPage()));
                 },
               ),
               const SizedBox(height: 20),
