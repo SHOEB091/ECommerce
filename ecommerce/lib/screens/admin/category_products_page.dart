@@ -24,9 +24,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
   String? _error;
 
   String _base(int port) {
-    if (kIsWeb) return 'http://localhost:$port/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api';
-    return 'http://localhost:$port/api';
+    return 'https://backend001-88nd.onrender.com/api';
   }
 
   @override

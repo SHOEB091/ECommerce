@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     // Configure CartService (host/port/apiPrefix). If token exists, CartService.init(token: ...) should be called elsewhere after login.
-    CartService.instance.configure(host: 'localhost', port: 5000, apiPrefix: '/api/v1');
+    CartService.instance.configure(host: 'backend001-88nd.onrender.com', port: 443, apiPrefix: '/api/v1', useHttps: true);
     // do not await here to avoid blocking UI init
     CartService.instance.init();
 
@@ -109,10 +109,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ---------------- PLATFORM-DEPENDENT API BASE ----------------
-  String getApiBase({int port = 5000}) {
-    if (kIsWeb) return 'http://localhost:$port/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api';
-    return 'http://localhost:$port/api';
+  String getApiBase({int port = 443}) {
+    return 'https://backend001-88nd.onrender.com/api';
   }
 
   // ---------------- API helpers ----------------

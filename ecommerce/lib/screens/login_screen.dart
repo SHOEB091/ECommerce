@@ -169,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Ensure CartService talks to the same API prefix your server exposes.
         // Your server uses '/api/v1/cart' so set prefix to '/api/v1'
         try {
-          CartService.instance.configure(apiPrefix: '/api/v1', port: 5000, host: 'localhost');
+          CartService.instance.configure(apiPrefix: '/api/v1', port: 443, host: 'backend001-88nd.onrender.com', useHttps: true);
           // Initialize with token so CartService will include Authorization header
           await CartService.instance.init(token: token);
           debugPrint('LOGIN: CartService initialized with token');

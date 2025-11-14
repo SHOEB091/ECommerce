@@ -56,11 +56,8 @@ class _AddProductPageState extends State<AddProductPage> {
     }
   }
 
-  String _getApiBase({int port = 5000}) {
-    // Use defaultTargetPlatform to detect Android emulator instead of dart:io.Platform
-    if (kIsWeb) return 'http://localhost:$port/api';
-    if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:$port/api';
-    return 'http://localhost:$port/api';
+  String _getApiBase({int port = 443}) {
+    return 'https://backend001-88nd.onrender.com/api';
   }
 
   String _asString(dynamic v) {

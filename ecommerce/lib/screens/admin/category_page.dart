@@ -28,10 +28,8 @@ class _CategoryPageState extends State<CategoryPage> {
     _fetchCategories();
   }
 
-  String _getApiBase({int port = 5000}) {
-    if (kIsWeb) return 'http://localhost:$port/api';
-    if (Platform.isAndroid) return 'http://10.0.2.2:$port/api';
-    return 'http://localhost:$port/api';
+  String _getApiBase({int port = 443}) {
+    return 'https://backend001-88nd.onrender.com/api';
   }
 
   String _asString(dynamic v) {

@@ -11,8 +11,8 @@ class AddressManager extends StatefulWidget {
 }
 
 class _AddressManagerState extends State<AddressManager> {
-  // ✅ Use 127.0.0.1 instead of localhost (works in Chrome/web)
-  final String apiUrl = 'http://127.0.0.1:5000/api/address';
+  // ✅ Production backend URL
+  final String apiUrl = 'https://backend001-88nd.onrender.com/api/v1/address';
   List<Map<String, dynamic>> addresses = [];
 
   @override
