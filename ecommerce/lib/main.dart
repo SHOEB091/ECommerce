@@ -42,11 +42,12 @@ Future<void> main() async {
   try {
     CartService.instance.configure(
       apiPrefix: '/api/v1',
-      port: 5000,
-      host: 'localhost',
+      port: 443,
+      host: 'backend001-88nd.onrender.com',
+      useHttps: true,
     );
     debugPrint(
-      '✅ CartService configured (apiPrefix=/api/v1, port=5000, host=localhost)',
+      '✅ CartService configured (apiPrefix=/api/v1, port=443, host=backend001-88nd.onrender.com)',
     );
   } catch (e) {
     debugPrint('⚠️ CartService configure error: $e');
