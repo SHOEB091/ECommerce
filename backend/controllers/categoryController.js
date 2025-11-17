@@ -1,22 +1,44 @@
 const Category = require('../models/categoryModel');
-const cloudinary = require('../config/cloudinary');
+const { uploadBufferToS3, deleteFromS3, keyFromS3Url } = require('../config/s3');
 const { success, error } = require('../utils/response');
+
+async function uploadCategoryImage(file) {
+  if (!file) return { image: '', imageKey: '' };
+  const uploaded = await uploadBufferToS3({
+    buffer: file.buffer,
+    mimetype: file.mimetype,
+    originalName: file.originalname,
+    folder: 'categories',
+  });
+
+  return { image: uploaded.url, imageKey: uploaded.key };
+}
+
+async function deleteCategoryImage(category) {
+  if (!category) return;
+  const key = category.imageKey || keyFromS3Url(category.image);
+  if (!key) return;
+  try {
+    await deleteFromS3(key);
+  } catch (err) {
+    console.error('Failed to delete category image from S3:', err.message);
+  }
+}
 
 // Create category
 exports.createCategory = async (req, res) => {
   try {
     let imageUrl = '';
+    let imageKey = '';
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'categories',
-      });
-      imageUrl = result.secure_url;
+      ({ image: imageUrl, imageKey } = await uploadCategoryImage(req.file));
     }
 
     const category = await Category.create({
       name: req.body.name,
       description: req.body.description,
       image: imageUrl,
+      imageKey,
     });
 
     success(res, category, 'Category created successfully');
@@ -53,16 +75,15 @@ exports.updateCategory = async (req, res) => {
     if (!category) return error(res, 'Category not found', 404);
 
     let imageUrl = category.image;
+    let imageKey = category.imageKey;
     if (req.file) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'categories',
-      });
-      imageUrl = result.secure_url;
+      await deleteCategoryImage(category);
+      ({ image: imageUrl, imageKey } = await uploadCategoryImage(req.file));
     }
 
     category = await Category.findByIdAndUpdate(
       req.params.id,
-      { name: req.body.name, description: req.body.description, image: imageUrl },
+      { name: req.body.name, description: req.body.description, image: imageUrl, imageKey },
       { new: true }
     );
 
@@ -77,6 +98,7 @@ exports.deleteCategory = async (req, res) => {
   try {
     const category = await Category.findByIdAndDelete(req.params.id);
     if (!category) return error(res, 'Category not found', 404);
+    await deleteCategoryImage(category);
     success(res, category, 'Category deleted');
   } catch (err) {
     error(res, err.message);
