@@ -1,17 +1,23 @@
 const Product = require('../models/productModel');
-const cloudinary = require('../config/cloudinary');
+const { uploadBufferToS3, deleteFromS3, keyFromS3Url } = require('../config/s3');
 const { success, error } = require('../utils/response');
 
-// ✅ Extract Cloudinary public_id from image URL
-function getPublicIdFromUrl(url) {
+// ✅ Extract S3 object key from image URL (fallback for legacy data)
+function getObjectKeyFromUrl(url) {
   try {
-    const parts = url.split('/');
-    const fileWithExt = parts[parts.length - 1]; // ex: abcdxyz.png
-    const folder = parts[parts.length - 2]; // ex: products
-    const publicId = fileWithExt.split('.')[0]; // ex: abcdxyz
-    return `${folder}/${publicId}`;
+    return keyFromS3Url(url);
   } catch {
     return null;
+  }
+}
+
+async function deleteExistingProductImage(product) {
+  const key = product.imageKey || getObjectKeyFromUrl(product.image);
+  if (!key) return;
+  try {
+    await deleteFromS3(key);
+  } catch (err) {
+    console.error('Failed to delete product image from S3:', err.message);
   }
 }
 
@@ -19,11 +25,16 @@ function getPublicIdFromUrl(url) {
 exports.createProduct = async (req, res) => {
   try {
     let image = '';
+    let imageKey = '';
     if (req.file) {
-      // Upload directly from memory buffer
-      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-      const result = await cloudinary.uploader.upload(base64, { folder: 'products' });
-      image = result.secure_url;
+      const uploaded = await uploadBufferToS3({
+        buffer: req.file.buffer,
+        mimetype: req.file.mimetype,
+        folder: 'products',
+        originalName: req.file.originalname,
+      });
+      image = uploaded.url;
+      imageKey = uploaded.key;
     }
 
     const product = await Product.create({
@@ -33,6 +44,7 @@ exports.createProduct = async (req, res) => {
       stock: req.body.stock,
       category: req.body.category,
       image,
+      imageKey,
     });
 
     success(res, product, '✅ Product created successfully');
@@ -70,17 +82,19 @@ exports.updateProduct = async (req, res) => {
     if (!product) return error(res, 'Product not found', 404);
 
     let image = product.image;
+    let imageKey = product.imageKey;
 
     if (req.file) {
-      // Delete old Cloudinary image if exists
-      if (product.image) {
-        const publicId = getPublicIdFromUrl(product.image);
-        if (publicId) await cloudinary.uploader.destroy(publicId);
-      }
+      await deleteExistingProductImage(product);
 
-      const base64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
-      const result = await cloudinary.uploader.upload(base64, { folder: 'products' });
-      image = result.secure_url;
+      const uploaded = await uploadBufferToS3({
+        buffer: req.file.buffer,
+        mimetype: req.file.mimetype,
+        folder: 'products',
+        originalName: req.file.originalname,
+      });
+      image = uploaded.url;
+      imageKey = uploaded.key;
     }
 
     product = await Product.findByIdAndUpdate(
@@ -92,6 +106,7 @@ exports.updateProduct = async (req, res) => {
         stock: req.body.stock,
         category: req.body.category,
         image,
+        imageKey,
       },
       { new: true }
     );
@@ -109,10 +124,7 @@ exports.deleteProduct = async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) return error(res, 'Product not found', 404);
 
-    if (product.image) {
-      const publicId = getPublicIdFromUrl(product.image);
-      if (publicId) await cloudinary.uploader.destroy(publicId);
-    }
+    await deleteExistingProductImage(product);
 
     await Product.findByIdAndDelete(req.params.id);
     success(res, product, '🗑️ Product deleted and image removed');

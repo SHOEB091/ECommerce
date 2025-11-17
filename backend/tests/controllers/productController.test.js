@@ -1,10 +1,14 @@
 const productController = require('../../controllers/productController');
 const Product = require('../../models/productModel');
-const cloudinary = require('../../config/cloudinary');
+const s3 = require('../../config/s3');
 const { success, error } = require('../../utils/response');
 
 jest.mock('../../models/productModel');
-jest.mock('../../config/cloudinary');
+jest.mock('../../config/s3', () => ({
+  uploadBufferToS3: jest.fn(),
+  deleteFromS3: jest.fn(),
+  keyFromS3Url: jest.fn(),
+}));
 jest.mock('../../utils/response');
 
 describe('Product Controller', () => {
@@ -54,6 +58,7 @@ describe('Product Controller', () => {
         stock: 10,
         category: '507f1f77bcf86cd799439012',
         image: '',
+        imageKey: '',
       });
       expect(success).toHaveBeenCalled();
     });
@@ -73,17 +78,19 @@ describe('Product Controller', () => {
         mimetype: 'image/jpeg',
         buffer: Buffer.from('fake-image-data'),
       };
-      cloudinary.uploader.upload.mockResolvedValue({
-        secure_url: 'https://cloudinary.com/image.jpg',
+      s3.uploadBufferToS3.mockResolvedValue({
+        url: 'https://s3.amazonaws.com/bucket/products/image.jpg',
+        key: 'products/image.jpg',
       });
       Product.create.mockResolvedValue(mockProduct);
 
       await productController.createProduct(mockReq, mockRes);
 
-      expect(cloudinary.uploader.upload).toHaveBeenCalled();
+      expect(s3.uploadBufferToS3).toHaveBeenCalled();
       expect(Product.create).toHaveBeenCalledWith(
         expect.objectContaining({
-          image: 'https://cloudinary.com/image.jpg',
+          image: 'https://s3.amazonaws.com/bucket/products/image.jpg',
+          imageKey: 'products/image.jpg',
         })
       );
       expect(success).toHaveBeenCalled();
@@ -193,16 +200,16 @@ describe('Product Controller', () => {
       const mockProduct = {
         _id: '507f1f77bcf86cd799439011',
         name: 'Test Product',
-        image: 'https://cloudinary.com/products/abc123.jpg',
+        image: 'https://s3.amazonaws.com/bucket/products/abc123.jpg',
+        imageKey: 'products/abc123.jpg',
       };
       mockReq.params.id = '507f1f77bcf86cd799439011';
       Product.findById.mockResolvedValue(mockProduct);
       Product.findByIdAndDelete.mockResolvedValue(mockProduct);
-      cloudinary.uploader.destroy.mockResolvedValue({ result: 'ok' });
 
       await productController.deleteProduct(mockReq, mockRes);
 
-      expect(cloudinary.uploader.destroy).toHaveBeenCalledWith('products/abc123');
+      expect(s3.deleteFromS3).toHaveBeenCalledWith('products/abc123.jpg');
       expect(Product.findByIdAndDelete).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
       expect(success).toHaveBeenCalled();
     });

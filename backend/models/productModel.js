@@ -8,7 +8,7 @@ const productSchema = new mongoose.Schema(
     stock: { type: Number, required: true },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' },
     image: { type: String },
-    imagePublicId: { type: String }, // ✅ added this
+    imageKey: { type: String },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
