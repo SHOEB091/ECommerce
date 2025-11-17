@@ -11,20 +11,20 @@ import 'package:ecommerce/screens/welcome_screen.dart';
 import 'package:ecommerce/screens/intro_screen.dart';
 import 'package:ecommerce/screens/login_screen.dart';
 import 'package:ecommerce/screens/home_screen.dart';
-import 'package:ecommerce/screens/discover_page.dart';
 import 'package:ecommerce/screens/settings_page.dart';
-import 'package:ecommerce/screens/mens_product_list_screen.dart';
-import 'package:ecommerce/screens/womens_product_list_screen.dart';
 import 'package:ecommerce/screens/accessories_product_list_screen.dart';
-import 'package:ecommerce/screens/more_product_list_screen.dart';
 import 'package:ecommerce/screens/chat_screen.dart';
 import 'package:ecommerce/screens/notofications_screen.dart';
+import 'package:ecommerce/screens/orders_page.dart';
 
 // Admin (optional)
 import 'package:ecommerce/screens/admin/admin_panel.dart';
 
 // Notifications service (ensure this file exists and implements init())
 import 'package:ecommerce/services/notifications_service.dart';
+
+// Secure storage to read saved JWT token
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,8 +37,44 @@ Future<void> main() async {
     debugPrint('⚠️ NotificationsService init failed: $e');
   }
 
-await CartService.instance.init();
-debugPrint('✅ CartService initialized');
+  // Configure CartService to match your backend routing.
+  // Your server exposes cart routes under "/api/v1/cart" so we set apiPrefix to '/api/v1'.
+  try {
+    CartService.instance.configure(
+      apiPrefix: '/api/v1',
+      port: 443,
+      host: 'backend001-88nd.onrender.com',
+      useHttps: true,
+    );
+    debugPrint(
+      '✅ CartService configured (apiPrefix=/api/v1, port=443, host=backend001-88nd.onrender.com)',
+    );
+  } catch (e) {
+    debugPrint('⚠️ CartService configure error: $e');
+  }
+
+  // Try to read saved token from secure storage and initialize CartService with it.
+  try {
+    final storage = const FlutterSecureStorage();
+    final token = await storage.read(key: 'token');
+    if (token != null && token.isNotEmpty) {
+      await CartService.instance.init(token: token);
+      debugPrint('✅ CartService initialized with saved token');
+    } else {
+      // Still call init() without token so CartService will fetch empty cart / be ready.
+      await CartService.instance.init();
+      debugPrint(
+        'ℹ️ CartService initialized without token (no saved token found)',
+      );
+    }
+  } catch (e) {
+    debugPrint('⚠️ CartService init error: $e');
+    // ensure CartService is at least initialized so UI relying on it doesn't crash
+    try {
+      await CartService.instance.init();
+    } catch (_) {}
+  }
+
   // Load .env: different path on web vs mobile if you keep .env under assets for web builds
   final envPath = kIsWeb ? 'assets/.env' : '.env';
   try {
@@ -59,7 +95,6 @@ debugPrint('✅ CartService initialized');
       }
     }
   }
-  
 
   runApp(const MyApp());
 }
@@ -85,16 +120,13 @@ class MyApp extends StatelessWidget {
         '/signup': (context) => const SignUpScreen(),
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
-        '/discover': (context) => const DiscoverPage(),
-        '/mens': (context) => const MensProductListScreen(),
-        '/womens': (context) => const WomenProductListScreen(),
         '/accessories': (context) => AccessoriesProductListScreen(),
-        '/more': (context) => const MoreProductListScreen(),
         '/settings': (context) => const SettingsPage(),
         '/chat': (context) => const ChatScreen(),
         '/notifications': (context) => const NotificationsScreen(),
         '/admin': (context) => AdminPanel(),
         '/cart': (context) => const CartScreen(),
+        '/orders': (context) => const OrdersPage(),
       },
     );
   }

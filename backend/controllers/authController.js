@@ -1,5 +1,4 @@
 // controllers/authController.js
-const express = require("express");
 const sendEmail = require("../utils/sendEmail");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -148,5 +147,63 @@ exports.getMe = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server error", success: false });
+  }
+};
+
+exports.updateMe = async (req, res) => {
+  try {
+    const userId = req.user && req.user._id;
+    if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+    const updates = {};
+    ["name", "email", "phone", "avatar"].forEach((field) => {
+      if (req.body[field] !== undefined && req.body[field] !== null) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ success: false, message: "No fields provided" });
+    }
+
+    // Check for email uniqueness if email is being updated (exclude current user)
+    if (updates.email) {
+      const existingUser = await userModels.findOne({
+        email: updates.email,
+        _id: { $ne: userId }, // Exclude current user
+      });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          message: "Email already exists. Please use a different email.",
+        });
+      }
+    }
+
+    // Note: We don't check name uniqueness since multiple users can have the same name
+    // If there's a unique index on name in the database, it needs to be dropped
+
+    const updated = await userModels
+      .findByIdAndUpdate(userId, updates, { new: true, runValidators: true })
+      .select("-password");
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({ success: true, user: updated });
+  } catch (error) {
+    console.error("updateMe error", error);
+    
+    // Handle duplicate key error specifically
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || "field";
+      return res.status(400).json({
+        success: false,
+        message: `This ${field} is already taken. Please choose a different ${field}.`,
+      });
+    }
+    
+    res.status(500).json({ success: false, message: error.message || "Unable to update profile" });
   }
 };

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'profile_setting_page.dart'; // ✅ Edit Profile page
 import 'address_screen.dart'; // ✅ Address Manager
 import 'package:ecommerce/screens/home_screen.dart';
+import '../services/user_service.dart';
+import '../utils/api.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -11,104 +14,337 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  // Dummy data (replace with real API data later)
-  String userName = "Sunie Pham";
-  String userEmail = "sunieux@gmail.com";
-  String profileImage = "https://i.pravatar.cc/150?img=47";
+  final _storage = const FlutterSecureStorage();
+  bool _isLoading = true;
+  Map<String, dynamic>? _user;
 
-  final List<String> _addressLines = ['Home', '12/4 MG Road, New Delhi, 110001'];
-  String _paymentMethod = 'Visa •••• 4242';
-  int _voucherCount = 2;
-  int _wishlistCount = 7;
-  double _appRating = 4.6;
+  bool get _isLoggedIn => _user != null;
+
+  String get _userName {
+    final name = _user?['name']?.toString().trim();
+    if (name != null && name.isNotEmpty) return name;
+    return _isLoggedIn ? 'User' : 'Guest';
+  }
+
+  String get _userEmail => _user?['email']?.toString() ?? '';
+
+  String? get _userRole => _user?['role']?.toString();
+
+  String get _profileImage {
+    final avatar = _user?['avatar']?.toString();
+    if (avatar != null && avatar.isNotEmpty) return avatar;
+    final email = _userEmail;
+    if (email.isNotEmpty) {
+      final hash = email.hashCode.abs();
+      return "https://i.pravatar.cc/150?img=${hash % 70}";
+    }
+    return "";
+  }
+
+  List<Map<String, dynamic>> _addresses = [];
+  int _voucherCount = 0;
+  double _appRating = 0.0;
+  int? _userRating;
+  bool _loadingAddresses = false;
+  bool _loadingVouchers = false;
+  bool _loadingRating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // 🔹 Load user data from secure storage (saved during login)
+  Future<void> _loadUserData() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await UserService.instance.ensureUserLoaded();
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+      });
+      
+      // Load dynamic data if user is logged in
+      if (_isLoggedIn) {
+        _loadAddresses();
+        _loadVouchers();
+        _loadRating();
+      }
+    } catch (e) {
+      debugPrint('Error loading user data: $e');
+      // Check if user is logged in
+      final token = await _storage.read(key: 'auth_token');
+      if (token == null) {
+        // No token, user not logged in
+        setState(() {
+          _user = null;
+        });
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // 🔹 Load addresses from API
+  Future<void> _loadAddresses() async {
+    if (!_isLoggedIn) return;
+    setState(() => _loadingAddresses = true);
+    try {
+      final response = await get('/api/address');
+      if (mounted && response['success'] == true) {
+        setState(() {
+          _addresses = List<Map<String, dynamic>>.from(response['addresses'] ?? []);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading addresses: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingAddresses = false);
+      }
+    }
+  }
+
+  // 🔹 Load vouchers from API
+  Future<void> _loadVouchers() async {
+    if (!_isLoggedIn) return;
+    setState(() => _loadingVouchers = true);
+    try {
+      final response = await get('/api/v1/vouchers');
+      if (mounted && response['success'] == true) {
+        setState(() {
+          _voucherCount = response['count'] ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading vouchers: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingVouchers = false);
+      }
+    }
+  }
+
+  // 🔹 Load rating from API
+  Future<void> _loadRating() async {
+    if (!_isLoggedIn) return;
+    setState(() => _loadingRating = true);
+    try {
+      final response = await get('/api/v1/ratings');
+      if (mounted && response['success'] == true) {
+        setState(() {
+          _appRating = (response['averageRating'] ?? 0.0).toDouble();
+          _userRating = response['userRating']?['rating'];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading rating: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRating = false);
+      }
+    }
+  }
+
+  // 🔹 Get address display text
+  String get _addressDisplay {
+    if (_addresses.isEmpty) return 'No address added';
+    final defaultAddress = _addresses.firstWhere(
+      (addr) => addr['isDefault'] == true,
+      orElse: () => _addresses.first,
+    );
+    final parts = <String>[];
+    if (defaultAddress['name'] != null) parts.add(defaultAddress['name'].toString());
+    if (defaultAddress['street'] != null) parts.add(defaultAddress['street'].toString());
+    if (defaultAddress['city'] != null) parts.add(defaultAddress['city'].toString());
+    return parts.isNotEmpty ? parts.join(', ') : 'Tap to add address';
+  }
 
   // 🔹 Navigate to Edit Profile and refresh when back
   Future<void> _onEditProfile() async {
+    if (!_isLoggedIn) {
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ProfileSettingPage()),
     );
 
-    // Optional: refresh profile data after returning
-    setState(() {
-      // fetch user data again here (API call if available)
-    });
+    // Refresh profile data after returning
+    _loadUserData();
   }
 
   void _onAddressTap() {
+    if (!_isLoggedIn) {
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AddressManager()),
-    );
-  }
-
-  void _onPaymentTap() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Payment method'),
-        content: Text(_paymentMethod),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-        ],
-      ),
-    );
+    ).then((_) {
+      // Refresh addresses when returning
+      _loadAddresses();
+    });
   }
 
   void _onVoucherTap() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('You have $_voucherCount vouchers')));
-  }
-
-  void _onWishlistTap() {
-    _onEditProfile(); // wishlist → edit profile (same for now)
-  }
-
-  void _onRateAppTap() {
+    if (!_isLoggedIn) {
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Rate this app'),
-        content: Row(
-          children: [
-            const Icon(Icons.star, color: Colors.amber),
-            const SizedBox(width: 8),
-            Text('$_appRating'),
-          ],
+        title: const Text('My Vouchers'),
+        content: Text(
+          _voucherCount > 0
+              ? 'You have $_voucherCount active voucher${_voucherCount > 1 ? 's' : ''} available!'
+              : 'You don\'t have any active vouchers at the moment.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-        ],
-      ),
-    );
-  }
-
-  void _onLogout() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Log out'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
-              );
-            },
-            child: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
     );
   }
 
+  void _onRateAppTap() async {
+    if (!_isLoggedIn) {
+      Navigator.pushNamed(context, '/login');
+      return;
+    }
+
+    int? selectedRating = _userRating;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Rate this app'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  final rating = index + 1;
+                  return IconButton(
+                    icon: Icon(
+                      rating <= (selectedRating ?? 0)
+                          ? Icons.star
+                          : Icons.star_border,
+                      color: Colors.amber,
+                      size: 40,
+                    ),
+                    onPressed: () {
+                      setDialogState(() {
+                        selectedRating = rating;
+                      });
+                    },
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                selectedRating != null
+                    ? 'You rated: $selectedRating stars'
+                    : 'Tap stars to rate',
+                style: const TextStyle(fontSize: 14),
+              ),
+              if (_appRating > 0) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Average rating: ${_appRating.toStringAsFixed(1)}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            if (selectedRating != null)
+              TextButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await _submitRating(selectedRating!);
+                },
+                child: const Text('Submit'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitRating(int rating) async {
+    try {
+      final response = await post('/api/v1/ratings', {'rating': rating});
+      if (mounted && response['success'] == true) {
+        setState(() {
+          _appRating = (response['averageRating'] ?? 0.0).toDouble();
+          _userRating = response['userRating']?['rating'];
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thank you for rating!')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error submitting rating: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to submit rating')),
+        );
+      }
+    }
+  }
+
+  Future<void> _onLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log out'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Log out', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      // Clear all stored authentication data
+      await clearToken();
+      await UserService.instance.clear();
+      await _storage.delete(key: 'user');
+      await _storage.delete(key: 'role');
+      
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isLoggedIn = _isLoggedIn;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -124,42 +360,88 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         title: const Text('Profile', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadUserData,
+            tooltip: 'Refresh profile',
+          ),
+        ],
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final bool isDesktop = constraints.maxWidth >= 800;
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isDesktop = constraints.maxWidth >= 800;
 
-          // 🔹 Profile header
-          Widget profileHeader = Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            elevation: 2,
-            margin: EdgeInsets.zero,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 40, backgroundImage: NetworkImage(profileImage)),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                // 🔹 Profile header
+                Widget profileHeader = Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 2,
+                  margin: EdgeInsets.zero,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       children: [
-                        Text(userName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold, fontSize: 18)),
-                        const SizedBox(height: 6),
-                        Text(userEmail, style: const TextStyle(color: Colors.grey)),
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundImage:
+                              _profileImage.isNotEmpty ? NetworkImage(_profileImage) : null,
+                          child: _profileImage.isEmpty
+                              ? Text(
+                                  _userName.isNotEmpty ? _userName[0].toUpperCase() : 'U',
+                                  style: const TextStyle(fontSize: 32),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _userName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                isLoggedIn ? _userEmail : 'Please log in to view details',
+                                style: const TextStyle(color: Colors.grey),
+                              ),
+                              if (_userRole != null) ...[
+                                const SizedBox(height: 4),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _userRole == 'admin' || _userRole == 'superadmin'
+                                        ? Colors.orange.shade100
+                                        : Colors.blue.shade100,
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _userRole!.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: _userRole == 'admin' || _userRole == 'superadmin'
+                                          ? Colors.orange.shade800
+                                          : Colors.blue.shade800,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.settings, color: Colors.black87),
+                          onPressed: _onEditProfile, // ✅ opens edit profile
+                        ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.settings, color: Colors.black87),
-                    onPressed: _onEditProfile, // ✅ opens edit profile
-                  ),
-                ],
-              ),
-            ),
-          );
+                );
 
           // 🔹 Options list
           final options = <_OptionItem>[
@@ -167,17 +449,35 @@ class _ProfilePageState extends State<ProfilePage> {
               Icons.location_on_outlined,
               'Address',
               _onAddressTap,
-              subtitle: _addressLines.join('\n'),
+              subtitle: _loadingAddresses ? 'Loading...' : _addressDisplay,
             ),
-            _OptionItem(Icons.credit_card, 'Payment method', _onPaymentTap,
-                subtitle: _paymentMethod),
-            _OptionItem(Icons.card_giftcard, 'Voucher', _onVoucherTap,
-                subtitle: '$_voucherCount available'),
-            _OptionItem(Icons.favorite_border, 'My Wishlist', _onWishlistTap,
-                subtitle: '$_wishlistCount items'),
-            _OptionItem(Icons.star_border, 'Rate this app', _onRateAppTap,
-                subtitle: 'Current rating: $_appRating'),
-            _OptionItem(Icons.logout, 'Log out', _onLogout, color: Colors.redAccent),
+            _OptionItem(
+              Icons.card_giftcard,
+              'Voucher',
+              _onVoucherTap,
+              subtitle: _loadingVouchers
+                  ? 'Loading...'
+                  : _voucherCount > 0
+                      ? '$_voucherCount available'
+                      : 'No vouchers',
+            ),
+            _OptionItem(
+              Icons.star_border,
+              'Rate this app',
+              _onRateAppTap,
+              subtitle: _loadingRating
+                  ? 'Loading...'
+                  : _userRating != null
+                      ? 'Your rating: $_userRating/5 • Avg: ${_appRating.toStringAsFixed(1)}'
+                      : _appRating > 0
+                          ? 'Average: ${_appRating.toStringAsFixed(1)}/5'
+                          : 'Tap to rate',
+            ),
+            if (isLoggedIn)
+              _OptionItem(Icons.logout, 'Log out', _onLogout, color: Colors.redAccent)
+            else
+              _OptionItem(Icons.login, 'Sign In', () => Navigator.pushNamed(context, '/login'),
+                  color: Colors.blueAccent),
           ];
 
           Widget optionsList = ListView.separated(

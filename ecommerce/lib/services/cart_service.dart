@@ -1,322 +1,546 @@
 // lib/services/cart_service.dart
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter/material.dart';
 
+/// Simple result wrapper returned by service methods.
+class CartResult {
+  final bool success;
+  final int? statusCode;
+  final String? message;
+  final dynamic payload;
+
+  CartResult({
+    required this.success,
+    this.statusCode,
+    this.message,
+    this.payload,
+  });
+
+  @override
+  String toString() {
+    return 'CartResult(success: $success, statusCode: $statusCode, message: ${message ?? 'null'}, payload: ${payload ?? 'null'})';
+  }
+}
+
+/// Model used by UI (matches what UI expects in earlier code)
 class CartItem {
-  final String id; // productId string
+  final String id; // cart item id (fallbacks to productId when absent)
+  final String productId;
   final String title;
-  final String? image;
-  final int priceInPaise; // integer paise
+  final String image;
+  final int? priceInPaise;
+  final double? unitPrice;
+  final Map<String, dynamic>? productPayload;
   int qty;
 
   CartItem({
     required this.id,
+    required this.productId,
     required this.title,
-    this.image,
-    required this.priceInPaise,
-    this.qty = 1,
+    required this.image,
+    required this.qty,
+    this.priceInPaise,
+    this.unitPrice,
+    this.productPayload,
   });
 
-  Map<String, dynamic> toJson() => {
-        'productId': id,
-        'title': title,
-        'image': image,
-        'priceInPaise': priceInPaise,
-        'qty': qty,
-      };
+  /// Create a CartItem from backend response.
+  /// Handles both populated product objects and simple id references.
+  factory CartItem.fromJson(Map<String, dynamic> json) {
+    final dynamic productNode = json['productId'] ?? json['product'];
+    final Map<String, dynamic>? productMap =
+        (productNode is Map<String, dynamic>)
+        ? productNode
+        : (productNode is Map)
+        ? Map<String, dynamic>.from(productNode)
+        : null;
 
-  static CartItem fromJson(Map<String, dynamic> j) {
-    final productId = (j['productId'] ?? j['id'] ?? '').toString();
-    final title = (j['title'] ?? j['name'] ?? '').toString();
-    final image = j['image']?.toString();
-    final priceInPaise =
-        _toInt(j['priceInPaise'] ?? j['price_paise'] ?? j['price'] ?? 0);
-    final qty = _toInt(j['qty'] ?? j['quantity'] ?? 1);
+    final String resolvedProductId =
+        productMap?['_id']?.toString() ??
+        (productNode != null ? productNode.toString() : '');
+    final String resolvedTitle =
+        json['title']?.toString() ??
+        productMap?['name']?.toString() ??
+        json['name']?.toString() ??
+        'Item';
+    final String resolvedImage =
+        json['image']?.toString() ??
+        json['imageUrl']?.toString() ??
+        productMap?['image']?.toString() ??
+        productMap?['imageUrl']?.toString() ??
+        '';
+
+    final int? paise = json['priceInPaise'] != null
+        ? int.tryParse(json['priceInPaise'].toString())
+        : null;
+    double? price;
+    if (json['price'] != null) {
+      price = double.tryParse(json['price'].toString());
+    } else if (productMap?['price'] != null) {
+      price = double.tryParse(productMap!['price'].toString());
+    } else if (paise != null) {
+      price = paise / 100.0;
+    }
+
+    final int resolvedQty = json['qty'] != null
+        ? int.tryParse(json['qty'].toString()) ?? 1
+        : (json['quantity'] != null
+              ? int.tryParse(json['quantity'].toString()) ?? 1
+              : 1);
+
+    final String resolvedId =
+        json['id']?.toString() ??
+        json['_id']?.toString() ??
+        json['cartItemId']?.toString() ??
+        resolvedProductId;
 
     return CartItem(
-      id: productId,
-      title: title,
-      image: image,
-      priceInPaise: priceInPaise,
-      qty: qty,
+      id: resolvedId,
+      productId: resolvedProductId,
+      title: resolvedTitle,
+      image: resolvedImage,
+      qty: resolvedQty,
+      priceInPaise: paise,
+      unitPrice: price,
+      productPayload: productMap,
     );
   }
 
-  static int _toInt(dynamic v) {
-    if (v == null) return 0;
-    if (v is int) return v;
-    if (v is double) return v.round();
-    if (v is String) {
-      final parsed = int.tryParse(v);
-      if (parsed != null) return parsed;
-      final d = double.tryParse(v);
-      if (d != null) return d.round();
-    }
-    return 0;
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'productId': productId,
+    'title': title,
+    'image': image,
+    'qty': qty,
+    if (priceInPaise != null) 'priceInPaise': priceInPaise,
+    if (unitPrice != null) 'price': unitPrice,
+  };
+
+  // Legacy getters to keep older UI code functioning without immediate refactor.
+  String get name => title;
+  String get imageUrl => image;
+  double get price =>
+      unitPrice ?? (priceInPaise != null ? priceInPaise! / 100.0 : 0.0);
 }
 
+/// CartService singleton
 class CartService {
-  CartService._();
-  static final instance = CartService._();
+  CartService._internal();
 
+  static final CartService instance = CartService._internal();
+
+  // runtime configuration
+  String _host = 'backend001-88nd.onrender.com';
+  int _port = 443;
+  String _apiPrefix = '/api/v1';
+  bool _useHttps = true;
+  String get _baseUrl {
+    final protocol = _useHttps ? 'https' : 'http';
+    final portPart = (_port != 80 && _port != 443) ? ':$_port' : '';
+    return '$protocol://$_host$portPart$_apiPrefix';
+  }
+  String get baseUrl => _baseUrl;
+
+  final _storage = const FlutterSecureStorage();
+  String? _token;
+
+  // notifier for UI
   final ValueNotifier<List<CartItem>> items = ValueNotifier<List<CartItem>>([]);
-  static const _kStorageKey = 'app_cart_v1';
-  bool _initialized = false;
 
-  String get _base {
-    // Priority: explicit env override -> web localhost -> android emulator -> localhost fallback
-    final fromEnv = dotenv.env['API_BASE'];
-    if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
+  // expose a read-only snapshot
+  List<CartItem> get currentItems => List.unmodifiable(items.value);
 
-    // Web builds can reach the backend at localhost when run on same machine
-    if (kIsWeb) return 'http://localhost:5000/api/v1';
-
-    // Android emulator uses 10.0.2.2 to reach host machine's localhost
-    return 'http://10.0.2.2:5000/api/v1';
+  /// Call early to configure host/port/prefix before init (optional).
+  void configure({
+    required String host,
+    required int port,
+    String apiPrefix = '/api/v1',
+    bool useHttps = false,
+  }) {
+    _host = host;
+    _port = port;
+    _apiPrefix = apiPrefix;
+    _useHttps = useHttps;
   }
 
-  Map<String, String> _defaultHeaders([String? token]) {
+  /// Initialize: load token (if any) and optionally fetch cart.
+  Future<void> init({
+    bool fetch = true,
+    String? token,
+    bool persistToken = true,
+  }) async {
+    try {
+      if (token != null && token.isNotEmpty) {
+        await setAuthToken(token, persist: persistToken);
+        debugPrint('CartService: token supplied to init() and stored');
+      } else {
+        _token = await _storage.read(key: 'token');
+        if (_token == null || _token!.isEmpty) {
+          _token = await _storage.read(key: 'auth_token');
+          if (_token != null && _token!.isNotEmpty) {
+            debugPrint('CartService: token loaded from auth_token key');
+          }
+        }
+        if (_token != null && _token!.isNotEmpty) {
+          debugPrint('CartService: token loaded from storage');
+        } else {
+          debugPrint('CartService: no token in storage');
+        }
+      }
+      if (fetch) {
+        await fetchCart();
+      }
+    } catch (e, st) {
+      debugPrint('CartService.init error: $e\n$st');
+    }
+  }
+
+  /// Save token to storage and set for subsequent requests.
+  Future<void> setAuthToken(String? token, {bool persist = true}) async {
+    _token = token;
+    if (persist) {
+      if (token != null && token.isNotEmpty) {
+        await _storage.write(key: 'token', value: token);
+        await _storage.write(key: 'auth_token', value: token);
+      } else {
+        await _storage.delete(key: 'token');
+        await _storage.delete(key: 'auth_token');
+      }
+    }
+  }
+
+  Map<String, String> _defaultHeaders() {
     final headers = <String, String>{
+      'Accept': 'application/json',
       'Content-Type': 'application/json',
     };
-    if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+    if (_token != null && _token!.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $_token';
+    }
     return headers;
   }
 
-  /// Call once at app startup
-  Future<void> init() async {
-    if (_initialized) return;
-    _initialized = true;
-    await _loadFromStorage();
-    await _trySyncFromServer();
+  Map<String, String> defaultHeaders() => _defaultHeaders();
+
+  Uri _uri(String path, [Map<String, dynamic>? query]) {
+    final url = '$_baseUrl$path';
+    if (query == null || query.isEmpty) return Uri.parse(url);
+    return Uri.parse(
+      url,
+    ).replace(queryParameters: query.map((k, v) => MapEntry(k, v.toString())));
   }
 
-  Future<void> _trySyncFromServer() async {
+  Map<String, dynamic> _mapFromDynamic(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return {};
+  }
+
+  List<CartItem> _parseCartItems(dynamic payload) {
     try {
-      final r = await _apiGet('/cart');
-      if (r == null) return;
-      final status = r['status'] as int? ?? 0;
-      final body = r['body'];
-      if (status == 200 && body != null && body['cart'] != null) {
-        final cartJson = body['cart'] as Map<String, dynamic>;
-        final itemsJson = cartJson['items'] as List<dynamic>? ?? [];
-        final remote = <CartItem>[];
-        for (final e in itemsJson) {
-          try {
-            final m = Map<String, dynamic>.from(e as Map);
-            final pid = (m['productId'] is Map)
-                ? (m['productId']['_id'] ?? m['productId']['id'])
-                : m['productId'];
-            final entry = {
-              'productId': pid,
-              'title': m['title'] ??
-                  (m['productId'] is Map ? m['productId']['name'] : null),
-              'image': m['image'] ??
-                  (m['productId'] is Map ? m['productId']['image'] : null),
-              'priceInPaise': m['priceInPaise'] ?? m['price'] ?? null,
-              'qty': m['qty'] ?? m['quantity'] ?? 1,
-            };
-            remote.add(CartItem.fromJson(entry));
-          } catch (err) {
-            debugPrint('[CartService] skip remote item parse: $err');
-          }
-        }
+      if (payload == null) return [];
 
-        // merge remote + local
-        final Map<String, CartItem> merged = {};
-        for (final it in remote) merged[it.id] = it;
-        for (final it in items.value) {
-          if (merged.containsKey(it.id)) merged[it.id]!.qty += it.qty;
-          else merged[it.id] = it;
-        }
-        final mergedList = merged.values.toList();
-        items.value = mergedList;
-        await _saveToStorage(mergedList);
+      if (payload is List) {
+        return payload.map<CartItem>((item) {
+          if (item is CartItem) return item;
+          return CartItem.fromJson(_mapFromDynamic(item));
+        }).toList();
+      }
 
-        // push merged to server (best-effort)
-        for (final it in mergedList) {
-          try {
-            await _apiPost('/cart/item', {'productId': it.id, 'qty': it.qty});
-          } catch (e) {
-            debugPrint('[CartService] push merged item failed: $e');
-          }
+      if (payload is CartItem) {
+        return [payload];
+      }
+
+      if (payload is Map || payload is Map<String, dynamic>) {
+        final map = _mapFromDynamic(payload);
+
+        if (map.containsKey('items') && map['items'] is List) {
+          return _parseCartItems(map['items']);
+        }
+        if (map.containsKey('cart')) {
+          return _parseCartItems(map['cart']);
+        }
+        if (map.containsKey('data')) {
+          return _parseCartItems(map['data']);
+        }
+        if (map.containsKey('result')) {
+          return _parseCartItems(map['result']);
+        }
+        if (map.containsKey('item')) {
+          return _parseCartItems(map['item']);
+        }
+        if (map.containsKey('productId') || map.containsKey('product')) {
+          return [CartItem.fromJson(map)];
         }
       }
-    } catch (e) {
-      debugPrint('[CartService] remote sync failed: $e');
+    } catch (e, st) {
+      debugPrint('CartService._parseCartItems error: $e\n$st');
     }
+    return [];
   }
 
-  void addToCart(CartItem item, {int addQty = 1}) {
-    if (addQty <= 0) addQty = 1;
-    final list = List<CartItem>.from(items.value);
-    final idx = list.indexWhere((c) => c.id == item.id);
-    if (idx >= 0) {
-      list[idx].qty = (list[idx].qty + addQty);
-    } else {
-      final clone = CartItem(
-          id: item.id,
-          title: item.title,
-          image: item.image,
-          priceInPaise: item.priceInPaise,
-          qty: addQty);
-      list.insert(0, clone);
-    }
-    items.value = list;
-    _saveToStorage(list);
-
-    // push to server (best-effort)
-    _apiPost('/cart/item', {'productId': item.id, 'qty': addQty})
-        .catchError((e) => debugPrint('[CartService] push add failed: $e'));
+  void _updateItemsFromPayload(dynamic payload) {
+    items.value = _parseCartItems(payload);
   }
 
-  Future<void> updateQty(String productId, int qty) async {
-    final list = items.value.map((c) {
-      if (c.id == productId) c.qty = qty;
-      return c;
-    }).where((c) => c.qty > 0).toList();
-
-    items.value = list;
-    _saveToStorage(list);
-
+  /// Add item to cart.
+  /// Returns CartResult with success flag and statusCode/message
+  Future<CartResult?> addItem(String productId, {int qty = 1}) async {
     try {
-      await _apiPut('/cart/item/$productId', {'qty': qty});
-    } catch (e) {
-      debugPrint('[CartService] push update failed: $e');
-    }
-  }
-
-  Future<void> remove(String productId) async {
-    final list = items.value.where((c) => c.id != productId).toList();
-    items.value = list;
-    _saveToStorage(list);
-
-    try {
-      await _apiDelete('/cart/item/$productId');
-    } catch (e) {
-      debugPrint('[CartService] push remove failed: $e');
-    }
-  }
-
-  Future<void> clear() async {
-    items.value = [];
-    _saveToStorage([]);
-    try {
-      await _apiDelete('/cart');
-    } catch (e) {
-      debugPrint('[CartService] push clear failed: $e');
-    }
-  }
-
-  int get totalPaise =>
-      items.value.fold(0, (s, c) => s + c.priceInPaise * c.qty);
-  int get itemCount => items.value.fold(0, (s, c) => s + c.qty);
-
-  Future<void> _saveToStorage(List<CartItem> list) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final jsonList = list.map((c) => jsonEncode(c.toJson())).toList();
-      await prefs.setStringList(_kStorageKey, jsonList);
-    } catch (e) {
-      debugPrint('[CartService] save error: $e');
-    }
-  }
-
-  Future<void> _loadFromStorage() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getStringList(_kStorageKey);
-      if (saved == null || saved.isEmpty) {
-        items.value = [];
-        return;
+      final u = _uri('/cart/item');
+      final body = json.encode({'productId': productId, 'qty': qty});
+      final res = await http
+          .post(u, headers: _defaultHeaders(), body: body)
+          .timeout(const Duration(seconds: 12));
+      final sc = res.statusCode;
+      dynamic payload;
+      try {
+        payload = json.decode(res.body);
+      } catch (_) {
+        payload = res.body;
       }
-      final list = <CartItem>[];
-      for (final s in saved) {
-        try {
-          final m = jsonDecode(s) as Map<String, dynamic>;
-          list.add(CartItem.fromJson(m));
-        } catch (e) {
-          debugPrint('[CartService] decode saved item error: $e');
-        }
+
+      if (sc >= 200 && sc < 300) {
+        _updateItemsFromPayload(payload);
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Added to cart';
+        return CartResult(
+          success: true,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
       }
-      items.value = list;
-    } catch (e) {
-      debugPrint('[CartService] load error: $e');
+
+      if (sc == 401) {
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Not authorized';
+        return CartResult(
+          success: false,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
+      }
+
+      final String message = (payload is Map && payload['message'] != null)
+          ? payload['message'].toString()
+          : 'Failed to add to cart ($sc)';
+      return CartResult(
+        success: false,
+        statusCode: sc,
+        message: message,
+        payload: payload,
+      );
+    } catch (e, st) {
+      debugPrint('CartService.addItem error: $e\n$st');
+      return CartResult(
+        success: false,
+        statusCode: null,
+        message: 'Network or internal error: $e',
+      );
+    }
+  }
+
+  /// Fetch cart items from server and populate items ValueNotifier.
+  /// Returns CartResult
+  Future<CartResult> fetchCart() async {
+    try {
+      final u = _uri('/cart');
+      final res = await http
+          .get(u, headers: _defaultHeaders())
+          .timeout(const Duration(seconds: 12));
+      final sc = res.statusCode;
+      dynamic payload;
+      try {
+        payload = json.decode(res.body);
+      } catch (_) {
+        payload = res.body;
+      }
+
+      if (sc >= 200 && sc < 300) {
+        _updateItemsFromPayload(payload);
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Cart fetched';
+        return CartResult(
+          success: true,
+          statusCode: sc,
+          message: message,
+          payload: items.value,
+        );
+      }
+
       items.value = [];
-    }
-  }
 
-  // -------------------------
-  // Internal HTTP helpers
-  // -------------------------
-  Future<Map<String, dynamic>?> _apiGet(String path, {String? token}) async {
-    try {
-      final url = '$_base$path';
-      final headers = _defaultHeaders(token);
-      final resp = await http.get(Uri.parse(url), headers: headers);
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        return {
-          'status': resp.statusCode,
-          'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-        };
-      } else {
-        debugPrint('[CartService] GET ${resp.statusCode}: ${resp.body}');
-        return {'status': resp.statusCode, 'body': resp.body};
+      if (sc == 401) {
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Not authorized, no token';
+        return CartResult(
+          success: false,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
       }
-    } catch (e) {
-      debugPrint('[CartService] _apiGet error: $e');
-      return null;
+
+      final String message = (payload is Map && payload['message'] != null)
+          ? payload['message'].toString()
+          : 'Failed to fetch cart';
+      return CartResult(
+        success: false,
+        statusCode: sc,
+        message: message,
+        payload: payload,
+      );
+    } catch (e, st) {
+      debugPrint('CartService.fetchCart error: $e\n$st');
+      items.value = [];
+      return CartResult(
+        success: false,
+        statusCode: null,
+        message: 'Network or internal error: $e',
+      );
     }
   }
 
-  Future<Map<String, dynamic>> _apiPost(String path, Map<String, dynamic> body,
-      {String? token}) async {
-    final url = '$_base$path';
-    final headers = _defaultHeaders(token);
-    final resp =
-        await http.post(Uri.parse(url), headers: headers, body: jsonEncode(body));
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return {
-        'status': resp.statusCode,
-        'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-      };
-    } else {
-      throw Exception('POST ${resp.statusCode}: ${resp.body}');
+  /// Remove a cart item by product id
+  Future<CartResult> removeItem(String productId) async {
+    try {
+      final u = _uri('/cart/item/$productId');
+      final res = await http
+          .delete(u, headers: _defaultHeaders())
+          .timeout(const Duration(seconds: 12));
+      final sc = res.statusCode;
+      dynamic payload;
+      try {
+        payload = json.decode(res.body);
+      } catch (_) {
+        payload = res.body;
+      }
+
+      if (sc >= 200 && sc < 300) {
+        _updateItemsFromPayload(payload);
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Removed';
+        return CartResult(
+          success: true,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
+      }
+
+      if (sc == 401) {
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Not authorized';
+        return CartResult(
+          success: false,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
+      }
+
+      final String message = (payload is Map && payload['message'] != null)
+          ? payload['message'].toString()
+          : 'Failed to remove';
+      return CartResult(
+        success: false,
+        statusCode: sc,
+        message: message,
+        payload: payload,
+      );
+    } catch (e, st) {
+      debugPrint('CartService.removeItem error: $e\n$st');
+      return CartResult(
+        success: false,
+        statusCode: null,
+        message: 'Network or internal error: $e',
+      );
     }
   }
 
-  Future<Map<String, dynamic>> _apiPut(String path, Map<String, dynamic> body,
-      {String? token}) async {
-    final url = '$_base$path';
-    final headers = _defaultHeaders(token);
-    final resp =
-        await http.put(Uri.parse(url), headers: headers, body: jsonEncode(body));
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return {
-        'status': resp.statusCode,
-        'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-      };
-    } else {
-      throw Exception('PUT ${resp.statusCode}: ${resp.body}');
+  /// Update item quantity
+  Future<CartResult> updateItemQty(String productId, {required int qty}) async {
+    try {
+      final u = _uri('/cart/item/$productId');
+      final body = json.encode({'qty': qty});
+      final res = await http
+          .put(u, headers: _defaultHeaders(), body: body)
+          .timeout(const Duration(seconds: 12));
+      final sc = res.statusCode;
+      dynamic payload;
+      try {
+        payload = json.decode(res.body);
+      } catch (_) {
+        payload = res.body;
+      }
+
+      if (sc >= 200 && sc < 300) {
+        _updateItemsFromPayload(payload);
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Quantity updated';
+        return CartResult(
+          success: true,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
+      }
+
+      if (sc == 401) {
+        final String message = (payload is Map && payload['message'] != null)
+            ? payload['message'].toString()
+            : 'Not authorized';
+        return CartResult(
+          success: false,
+          statusCode: sc,
+          message: message,
+          payload: payload,
+        );
+      }
+
+      final String message = (payload is Map && payload['message'] != null)
+          ? payload['message'].toString()
+          : 'Failed to update qty';
+      return CartResult(
+        success: false,
+        statusCode: sc,
+        message: message,
+        payload: payload,
+      );
+    } catch (e, st) {
+      debugPrint('CartService.updateItemQty error: $e\n$st');
+      return CartResult(
+        success: false,
+        statusCode: null,
+        message: 'Network or internal error: $e',
+      );
     }
   }
 
-  Future<Map<String, dynamic>> _apiDelete(String path, {String? token}) async {
-    final url = '$_base$path';
-    final headers = _defaultHeaders(token);
-    final resp = await http.delete(Uri.parse(url), headers: headers);
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return {
-        'status': resp.statusCode,
-        'body': resp.body.isNotEmpty ? jsonDecode(resp.body) : null
-      };
-    } else {
-      throw Exception('DELETE ${resp.statusCode}: ${resp.body}');
-    }
+  /// Clear all local items (does not call server)
+  void clearLocalCart() {
+    items.value = [];
+  }
+
+  /// Backwards compatible aliases for legacy UI code.
+  Future<CartResult> remove(String productId) => removeItem(productId);
+  Future<CartResult> updateQty(String productId, int qty) =>
+      updateItemQty(productId, qty: qty);
+
+  /// Full sign-out: remove token & clear local cart
+  Future<void> signOut() async {
+    await setAuthToken(null, persist: true);
+    clearLocalCart();
   }
 }

@@ -1,95 +1,275 @@
 // lib/screens/checkout_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:ecommerce/services/cart_service.dart';
+import 'package:ecommerce/services/order_service.dart';
 import '../utils/api.dart'; // post(), saveToken()
-import 'package:connectivity_plus/connectivity_plus.dart'; // optional - add dependency if you use it
+import 'dart:io' show Platform;
+import '../utils/razorpay_web_stub.dart'
+    if (dart.library.html) '../utils/razorpay_web.dart';
 
 class CheckoutPage extends StatefulWidget {
   final List<Map<String, dynamic>> items; // [{productId, name, price, qty}]
   final double amount; // in rupees
-  const CheckoutPage({Key? key, required this.items, required this.amount}) : super(key: key);
+  const CheckoutPage({super.key, required this.items, required this.amount});
 
   @override
   State<CheckoutPage> createState() => _CheckoutPageState();
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  late Razorpay _razorpay;
+  Razorpay? _razorpay;
   bool _loading = false;
   Map? _localOrder; // local DB order returned by server
   Map? _razorpayOrder;
+  String? _razorpayKey;
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _line1Ctrl = TextEditingController();
+  final _line2Ctrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
+  final _postalCtrl = TextEditingController();
+
+  bool get _isWebApp => kIsWeb;
+
+  bool get _isMobileApp {
+    if (_isWebApp) return false;
+    try {
+      return Platform.isAndroid || Platform.isIOS;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool get _isDesktopApp {
+    if (_isWebApp) return false;
+    try {
+      return Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    if (_isMobileApp) {
+      _razorpay = Razorpay();
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    }
   }
 
   @override
   void dispose() {
-    _razorpay.clear();
+    if (_isMobileApp) {
+      _razorpay?.clear();
+    }
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _line1Ctrl.dispose();
+    _line2Ctrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _postalCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _startPayment() async {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
     setState(() => _loading = true);
     try {
       final payload = {
         'items': widget.items,
         'amount': widget.amount,
         'currency': 'INR',
+        'address': {
+          'fullName': _nameCtrl.text.trim(),
+          'line1': _line1Ctrl.text.trim(),
+          'line2': _line2Ctrl.text.trim(),
+          'city': _cityCtrl.text.trim(),
+          'state': _stateCtrl.text.trim(),
+          'postalCode': _postalCtrl.text.trim(),
+          'phone': _phoneCtrl.text.trim(),
+        },
       };
-      final result = await post('/payments/create-order', payload, auth: true);
+      final result = await post('/payments/order', payload, auth: true);
       final status = result['status'] as int;
       final body = result['body'] as Map<String, dynamic>?;
 
       if (status == 200 && body != null && body['success'] == true) {
-        _localOrder = body['order'] as Map<String,dynamic>?;
-        _razorpayOrder = body['razorpayOrder'] as Map<String,dynamic>? ?? body['razorpayorder'];
-        if (_razorpayOrder == null || _localOrder == null) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid server response')));
+        _localOrder = body['order'] is Map<String, dynamic>
+            ? body['order'] as Map<String, dynamic>
+            : body['order'] is Map
+            ? Map<String, dynamic>.from(body['order'] as Map)
+            : null;
+        _razorpayOrder = body['razorpayOrder'] is Map<String, dynamic>
+            ? body['razorpayOrder'] as Map<String, dynamic>
+            : body['razorpayOrder'] is Map
+            ? Map<String, dynamic>.from(body['razorpayOrder'] as Map)
+            : body['razorpayorder'] is Map<String, dynamic>
+            ? body['razorpayorder'] as Map<String, dynamic>
+            : body['razorpayorder'] is Map
+            ? Map<String, dynamic>.from(body['razorpayorder'] as Map)
+            : null;
+        _razorpayKey = body['key']?.toString();
+        if (_razorpayOrder == null ||
+            _razorpayOrder!.isEmpty ||
+            _localOrder == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid server response')),
+          );
           setState(() => _loading = false);
           return;
         }
         _openCheckout(_razorpayOrder!);
       } else {
-        final msg = body != null ? (body['message'] ?? 'Failed to create order') : 'Failed to create order';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        final msg = body != null
+            ? (body['message'] ?? 'Failed to create order')
+            : 'Failed to create order';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Network error: ${e.toString()}')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Network error: ${e.toString()}')));
     } finally {
       setState(() => _loading = false);
     }
   }
 
   void _openCheckout(Map rOrder) {
+    final prefill = {
+      'name': _nameCtrl.text.trim(),
+      'contact': _phoneCtrl.text.trim(),
+      'email': '',
+    };
+
     final options = {
-      'key': '${const String.fromEnvironment("RZP_KEY_ID", defaultValue: "<YOUR_RZP_TEST_KEY>")}',
+      'key':
+          _razorpayKey ??
+          const String.fromEnvironment(
+            "RZP_KEY_ID",
+            defaultValue: "<YOUR_RZP_TEST_KEY>",
+          ),
       'amount': rOrder['amount'], // paise
       'order_id': rOrder['id'],
       'name': 'Your App',
       'description': 'Order payment',
-      'prefill': {'email': '', 'contact': ''},
+      'prefill': prefill,
       'notes': {'localOrderId': _localOrder?['_id'] ?? ''},
-      'theme': {'color': '#F37254'}
+      'theme': {'color': '#F37254'},
     };
-    try {
-      _razorpay.open(options);
-    } catch (e) {
-      debugPrint('Error opening razorpay: $e');
+
+    if (_isWebApp && RazorpayWebBridge.isSupported) {
+      RazorpayWebBridge.open(
+        options: options,
+        onSuccess: (payload) {
+          final data = payload;
+          _handlePaymentSuccessGeneric(
+            razorpayOrderId: data['razorpay_order_id']?.toString() ??
+                options['order_id']?.toString() ??
+                '',
+            razorpayPaymentId:
+                data['razorpay_payment_id']?.toString() ??
+                    data['payment_id']?.toString() ??
+                    '',
+            razorpaySignature: data['razorpay_signature']?.toString() ??
+                data['signature']?.toString() ??
+                '',
+          );
+        },
+        onError: (error) {
+          final description =
+              error['description'] ?? error['reason'] ?? error['message'] ?? 'Payment failed';
+          _handlePaymentErrorMessage(description.toString());
+        },
+        onDismiss: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Payment window dismissed')),
+          );
+        },
+      );
+      return;
     }
+
+    if (_isMobileApp) {
+      try {
+        _razorpay?.open(options);
+      } catch (e) {
+        debugPrint('Error opening razorpay: $e');
+      }
+      return;
+    }
+
+    _showDesktopInstructions(rOrder);
+  }
+
+  void _showDesktopInstructions(Map rOrder) {
+    final orderId = rOrder['id']?.toString() ?? '';
+    final amount = rOrder['amount'] is num
+        ? (rOrder['amount'] as num).toInt()
+        : int.tryParse(rOrder['amount']?.toString() ?? '') ??
+            0; // amount in paise
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Desktop Payment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'We can’t launch the Razorpay overlay inside this desktop build yet.',
+            ),
+            const SizedBox(height: 12),
+            const Text('Please continue payment using one of the options below:'),
+            const SizedBox(height: 8),
+            Text('Order ID: $orderId'),
+            Text('Amount: ₹${(amount / 100).toStringAsFixed(2)}'),
+            const SizedBox(height: 16),
+            const Text(
+              '• Open this app in a desktop browser (Flutter web) to pay instantly\n'
+              '• Complete the payment on mobile (App/Web)\n'
+              '• Or contact support for a manual link',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   // robust verify with retries
-  Future<bool> _verifyWithRetries(Map verifyPayload, {int retries = 3, int delayMs = 1000}) async {
+  Future<bool> _verifyWithRetries(
+    Map verifyPayload, {
+    int retries = 3,
+    int delayMs = 1000,
+  }) async {
     for (int attempt = 0; attempt <= retries; attempt++) {
       try {
-        final result = await post('/payments/verify', verifyPayload, auth: true);
+        final result = await post(
+          '/payments/verify',
+          verifyPayload,
+          auth: true,
+        );
         final status = result['status'] as int;
         final body = result['body'] as Map<String, dynamic>?;
         if (status == 200 && body != null && body['success'] == true) {
@@ -113,53 +293,244 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return false;
   }
 
-  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+  Future<void> _handlePaymentSuccessGeneric({
+    required String razorpayOrderId,
+    required String razorpayPaymentId,
+    required String razorpaySignature,
+  }) async {
+    if (razorpayOrderId.isEmpty ||
+        razorpayPaymentId.isEmpty ||
+        razorpaySignature.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment response incomplete')),
+      );
+      return;
+    }
+
     // Build verify payload with local order id
-    final localOrderId = _localOrder?['_id'];
+    final localOrderId = _localOrder?['_id'] ?? _localOrder?['id'];
     if (localOrderId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Local order id missing')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Local order id missing')));
       return;
     }
 
     final verifyPayload = {
       'orderId': localOrderId,
-      'razorpay_order_id': response.orderId,
-      'razorpay_payment_id': response.paymentId,
-      'razorpay_signature': response.signature,
+      'razorpay_order_id': razorpayOrderId,
+      'razorpay_payment_id': razorpayPaymentId,
+      'razorpay_signature': razorpaySignature,
     };
 
     // Try verifying with retries (network resilient)
-    final ok = await _verifyWithRetries(verifyPayload, retries: 4, delayMs: 1500);
+    final ok = await _verifyWithRetries(
+      verifyPayload,
+      retries: 4,
+      delayMs: 1500,
+    );
 
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment verified!')));
-      Navigator.pushReplacementNamed(context, '/order-success');
+      try {
+        await CartService.instance.fetchCart();
+      } catch (_) {}
+      try {
+        await OrderService.instance.fetchOrders();
+      } catch (_) {}
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Payment verified!')));
+      Navigator.pushNamedAndRemoveUntil(context, '/orders', (route) => false);
     } else {
-      // Save local retry instruction (you can use local DB or call a backend "mark-needs-verification" endpoint)
-      // For now just inform user and provide manual retry button or check orders page
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment succeeded but verification failed. We will reconcile soon.')));
-      Navigator.pushReplacementNamed(context, '/order-pending'); // implement order pending screen
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Payment succeeded but verification failed. We will reconcile soon.',
+          ),
+        ),
+      );
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/orders', (route) => false);
     }
   }
 
+  void _handlePaymentSuccess(PaymentSuccessResponse response) {
+    _handlePaymentSuccessGeneric(
+      razorpayOrderId: response.orderId ?? '',
+      razorpayPaymentId: response.paymentId ?? '',
+      razorpaySignature: response.signature ?? '',
+    );
+  }
+
   void _handlePaymentError(PaymentFailureResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment failed: ${response.message}')));
+    _handlePaymentErrorMessage(response.message ?? 'Unknown error');
     // optional: hit /payments/mark-failed to update order status
   }
 
+  void _handlePaymentErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment failed: $message')),
+    );
+  }
+
   void _handleExternalWallet(ExternalWalletResponse response) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('External wallet: ${response.walletName}')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External wallet: ${response.walletName}')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final label = 'Pay ₹${widget.amount.toStringAsFixed(2)}';
+    final totalLabel = 'Pay ₹${widget.amount.toStringAsFixed(2)}';
+
     return Scaffold(
       appBar: AppBar(title: const Text('Checkout')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: _loading ? null : _startPayment,
-          child: _loading ? const CircularProgressIndicator() : Text(label),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_isDesktopApp)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.orange.shade800),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Desktop builds cannot launch Razorpay directly yet. After tapping Pay we\'ll show instructions to finish the payment in your browser or on mobile.',
+                            style: TextStyle(color: Colors.orange.shade800),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const Text(
+                  'Shipping details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _nameCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Full name',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Please enter recipient name'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _phoneCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone number',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  validator: (v) => v == null || v.trim().length < 8
+                      ? 'Enter a valid phone number'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _line1Ctrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Address line 1',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Address line 1 is required'
+                      : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _line2Ctrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Address line 2 (optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cityCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'City',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => v == null || v.trim().isEmpty
+                            ? 'City is required'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stateCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'State',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _postalCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Postal code',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Postal code is required'
+                      : null,
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Order total: $totalLabel',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _loading ? null : _startPayment,
+                    icon: _loading
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lock_open),
+                    label: Text(_loading ? 'Processing...' : totalLabel),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

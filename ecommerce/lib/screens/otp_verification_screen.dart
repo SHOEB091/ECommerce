@@ -1,6 +1,5 @@
 // lib/screens/otp_verification_screen.dart
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:intl/intl.dart';
@@ -15,12 +14,12 @@ class OtpVerificationScreen extends StatefulWidget {
   final bool fromSignup;
 
   const OtpVerificationScreen({
-    Key? key,
+    super.key,
     required this.email,
     this.name = '',
     this.password = '',
     this.fromSignup = false,
-  }) : super(key: key);
+  });
 
   @override
   State<OtpVerificationScreen> createState() => _OtpVerificationScreenState();
