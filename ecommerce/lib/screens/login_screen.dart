@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 
 import 'package:ecommerce/screens/admin/admin_panel.dart';
+import '../screens/otp_verification_screen.dart';
 import '../utils/api.dart';
 import '../services/notifications_service.dart';
 
@@ -114,6 +115,13 @@ class _LoginScreenState extends State<LoginScreen> {
       final body = result['body'] as Map<String, dynamic>?;
 
       debugPrint('LOGIN: status=$status, body=$body');
+
+      // Check if OTP is required for new email sign-in
+      if (status == 200 && body != null && body['success'] == true && body['requiresOtp'] == true) {
+        // OTP sent for new email - navigate to OTP verification screen
+        debugPrint('LOGIN: OTP required for new email, navigating to OTP screen');
+        return {'requiresOtp': true, 'email': email, 'password': password};
+      }
 
       if (status == 200 && body != null && (body['success'] == true || body['ok'] == true) && body['token'] != null) {
         final token = body['token'].toString();
@@ -245,6 +253,39 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = false);
 
     if (response != null) {
+      // Check if OTP is required (new email sign-in)
+      if (response['requiresOtp'] == true) {
+        // Add notification that OTP was sent
+        final now = DateTime.now();
+        NotificationsService.instance.add(
+          NotificationItem(
+            id: now.millisecondsSinceEpoch.toString(),
+            title: 'OTP sent',
+            body: 'An OTP was sent to $email at ${DateFormat.jm().format(now)}',
+            time: now,
+            isRead: false,
+            icon: Icons.email,
+          ),
+        );
+
+        // Navigate to OTP verification screen for login flow
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => OtpVerificationScreen(
+                email: email,
+                name: '', // Name not required for login flow
+                password: password, // Store password for resend OTP
+                fromSignup: false, // This is login flow
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Normal login success
       // Add a notification for successful login
       final now = DateTime.now();
       NotificationsService.instance.add(
