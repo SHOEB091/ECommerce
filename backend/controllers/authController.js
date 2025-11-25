@@ -22,7 +22,10 @@ exports.sendEmailOtp = async (req, res) => {
         .status(400)
         .json({ message: "email is required", success: false });
 
-    const existingUser = await userModels.findOne({ email });
+    // Normalize email (lowercase, trim)
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await userModels.findOne({ email: normalizedEmail });
     if (existingUser)
       return res
         .status(400)
@@ -30,31 +33,62 @@ exports.sendEmailOtp = async (req, res) => {
 
     const otp = geterateOtp();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-    await EmailOtp.deleteMany({ email });
-    await EmailOtp.create({ email, otp, expiresAt });
+    
+    // Delete any existing OTP for this email
+    await EmailOtp.deleteMany({ email: normalizedEmail });
+    
+    // Create new OTP record
+    await EmailOtp.create({ 
+      email: normalizedEmail, 
+      otp, 
+      expiresAt,
+      isLoginFlow: false // This is signup flow
+    });
 
-    await sendEmail(
-      email,
-      "Signup OTP",
-      `Your OTP is ${otp}. It expires in 5 minutes.`
-    );
+    console.log(`📧 Attempting to send OTP to ${normalizedEmail}`);
+
+    // Send email with better error handling
+    try {
+      await sendEmail(
+        normalizedEmail,
+        "Signup OTP",
+        `Your OTP is ${otp}. It expires in 5 minutes.`
+      );
+      console.log(`✅ OTP sent successfully to ${normalizedEmail}`);
+    } catch (emailError) {
+      console.error(`❌ Failed to send email to ${normalizedEmail}:`, emailError);
+      // Delete the OTP record if email sending failed
+      await EmailOtp.deleteMany({ email: normalizedEmail });
+      return res.status(500).json({ 
+        message: "unable to send otp email. Please check email configuration.", 
+        success: false,
+        error: process.env.NODE_ENV === 'development' ? emailError.message : undefined
+      });
+    }
 
     res.status(200).json({ message: "otp sent to email", success: true });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "unable to send otp", success: false });
+    console.error("sendEmailOtp error:", error);
+    res.status(500).json({ 
+      message: "unable to send otp", 
+      success: false,
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
 
 exports.verifyEmailOtp = async (req, res) => {
   try {
     const { email, otp, name, password } = req.body;
-    if (!email || !otp || !name || !password)
+    if (!email || !otp)
       return res
         .status(400)
-        .json({ message: "all fields are required", success: false });
+        .json({ message: "email and otp are required", success: false });
 
-    const record = await EmailOtp.findOne({ email });
+    // Normalize email (lowercase, trim)
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const record = await EmailOtp.findOne({ email: normalizedEmail });
     if (!record)
       return res.status(400).json({ message: "otp not found", success: false });
     if (record.otp !== otp)
@@ -62,23 +96,63 @@ exports.verifyEmailOtp = async (req, res) => {
     if (record.expiresAt < new Date())
       return res.status(400).json({ message: "otp expired", success: false });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if this is a login flow (new email sign-in) or signup flow
+    const isLoginFlow = record.isLoginFlow === true;
+    
+    // For login flow, use stored password; for signup flow, use provided password
+    let hashedPassword;
+    let userName = name;
+    
+    if (isLoginFlow) {
+      // Login flow: password is already stored and hashed in the OTP record
+      if (!record.password) {
+        return res.status(400).json({ 
+          message: "password not found in otp record", 
+          success: false 
+        });
+      }
+      hashedPassword = record.password;
+      // For login flow, we might not have name, so we'll use email or a default
+      if (!userName) {
+        userName = email.split('@')[0]; // Use email prefix as default name
+      }
+    } else {
+      // Signup flow: require name and password
+      if (!name || !password)
+        return res
+          .status(400)
+          .json({ message: "name and password are required for signup", success: false });
+      hashedPassword = await bcrypt.hash(password, 10);
+      userName = name;
+    }
+
+    // Check if user already exists (shouldn't happen, but safety check)
+    const existingUser = await userModels.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      await EmailOtp.deleteMany({ email: normalizedEmail });
+      return res.status(400).json({ 
+        message: "user already exists", 
+        success: false 
+      });
+    }
 
     // create user (assumes your user model may set default role)
     const newUser = await userModels.create({
-      name,
-      email,
+      name: userName,
+      email: normalizedEmail,
       password: hashedPassword,
       // do not add or force any extra fields here
     });
 
-    await EmailOtp.deleteMany({ email });
+    await EmailOtp.deleteMany({ email: normalizedEmail });
 
     const token = signToken(newUser._id);
 
     // Return token AND user object (without sensitive fields)
     res.status(200).json({
-      message: "user registered successfully",
+      message: isLoginFlow 
+        ? "user registered and logged in successfully" 
+        : "user registered successfully",
       token,
       success: true,
       user: {
@@ -102,12 +176,59 @@ exports.loginUser = async (req, res) => {
         .status(400)
         .json({ message: "email and password are required", success: false });
 
-    const user = await userModels.findOne({ email });
-    if (!user)
-      return res
-        .status(400)
-        .json({ message: "invalid credentials", success: false });
+    // Normalize email (lowercase, trim)
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    const user = await userModels.findOne({ email: normalizedEmail });
+    
+    // If user doesn't exist, send OTP for new email sign-in
+    if (!user) {
+      const otp = geterateOtp();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+      
+      // Delete any existing OTP for this email
+      await EmailOtp.deleteMany({ email: normalizedEmail });
+      
+      // Store OTP with password and login flow flag
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await EmailOtp.create({ 
+        email: normalizedEmail, 
+        otp, 
+        expiresAt, 
+        password: hashedPassword,
+        isLoginFlow: true 
+      });
 
+      console.log(`📧 Attempting to send login OTP to ${normalizedEmail}`);
+
+      // Send OTP email with better error handling
+      try {
+        await sendEmail(
+          normalizedEmail,
+          "Login OTP - New Email Verification",
+          `Your OTP for sign-in is ${otp}. It expires in 5 minutes.`
+        );
+        console.log(`✅ Login OTP sent successfully to ${normalizedEmail}`);
+      } catch (emailError) {
+        console.error(`❌ Failed to send login OTP email to ${normalizedEmail}:`, emailError);
+        // Delete the OTP record if email sending failed
+        await EmailOtp.deleteMany({ email: normalizedEmail });
+        return res.status(500).json({ 
+          message: "unable to send otp email. Please check email configuration.", 
+          success: false,
+          requiresOtp: false,
+          error: process.env.NODE_ENV === 'development' ? emailError.message : undefined
+        });
+      }
+
+      return res.status(200).json({ 
+        message: "otp sent to email for verification", 
+        success: true,
+        requiresOtp: true 
+      });
+    }
+
+    // If user exists, proceed with normal login
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid)
       return res

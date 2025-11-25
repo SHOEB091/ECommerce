@@ -9,9 +9,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('API Utils', () {
-    test('API_BASE should be defined', () {
+    test('API_BASE should be defined and target production backend', () {
       expect(API_BASE, isNotEmpty);
-      expect(API_BASE, contains('localhost'));
+      expect(API_BASE, startsWith('https://backend001-88nd.onrender.com'));
     });
 
     test('saveToken should be a function', () {

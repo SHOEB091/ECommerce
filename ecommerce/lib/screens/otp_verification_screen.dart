@@ -67,9 +67,24 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     if (!_canResend) return;
     setState(() => _loading = true);
     try {
-      final result = await post('/auth/email-send-otp', {'email': widget.email});
+      Map<String, dynamic> result;
+      
+      // For login flow, call login endpoint again to resend OTP
+      // For signup flow, call email-send-otp endpoint
+      if (!widget.fromSignup && widget.password.isNotEmpty) {
+        // Login flow: call login endpoint with email and password
+        result = await post('/auth/login', {
+          'email': widget.email,
+          'password': widget.password,
+        });
+      } else {
+        // Signup flow: call email-send-otp endpoint
+        result = await post('/auth/email-send-otp', {'email': widget.email});
+      }
+      
       final status = result['status'] as int;
       final body = result['body'] as Map<String, dynamic>?;
+      
       if (status == 200 && body != null && (body['success'] == true || body['message'] != null)) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP resent')));
         _startTimer();
